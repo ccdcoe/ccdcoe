@@ -1,9 +1,9 @@
 # CCDCOE package
 
-[![GitHub Release](https://img.shields.io/github/release/CCDCOE/tools.svg?style=flat)]()
+[![GitHub Release](https://img.shields.io/github/release/ccdcoe/ccdcoe.svg?style=flat)]()
 [![GPLv3 License](https://img.shields.io/badge/License-GPL%20v3-yellow.svg)](https://opensource.org/licenses/)
 
-![pypi](https://github.com/CCDCOE/tools/actions/workflows/package_to_pypi.yaml/badge.svg)
+![pypi](https://github.com/ccdcoe/ccdcoe/actions/workflows/package_to_pypi.yaml/badge.svg)
 
 This package contains generic re-usable code.
 
