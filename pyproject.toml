@@ -23,10 +23,13 @@ classifiers=[
 
 
 [tool.ccdcoe.group.dependencies]
-gitlab_bot = ["http_apis"]
+gitlab_bot = ["http_apis", "loggers"]
 
 [tool.poetry.group.http_apis.dependencies]
 requests = ">=2.31.0"
+
+[tool.poetry.group.loggers.dependencies]
+ansicolors = ">=1.1.8"
 
 [tool.poetry.dependencies]
 python = "^3.10"

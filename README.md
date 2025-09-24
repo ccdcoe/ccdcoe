@@ -21,7 +21,7 @@ pip install ccdcoe[http_apis]
 ```
 Or for multiple modules:
 ```
-pip install ccdcoe[http_apis, something_else]
+pip install ccdcoe[http_apis, loggers]
 ```
 
 ## Modules
@@ -29,6 +29,7 @@ pip install ccdcoe[http_apis, something_else]
 The following modules are available in the ccdcoe package:
 
 * http_apis
+* loggers
 
 ### HTTP apis
 
