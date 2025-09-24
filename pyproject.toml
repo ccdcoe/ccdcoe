@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "CCDCOE"
-version = "0.0.3"
+version = "0.0.4"
 description = "Package with general devops code"
 readme = "README.md"
 repository = "https://github.com/ccdcoe/ccdcoe"
@@ -24,12 +24,16 @@ classifiers=[
 
 [tool.ccdcoe.group.dependencies]
 gitlab_bot = ["http_apis", "loggers"]
+cli = ["http_apis", "loggers", "dumpers"]
 
 [tool.poetry.group.http_apis.dependencies]
 requests = ">=2.31.0"
 
 [tool.poetry.group.loggers.dependencies]
 ansicolors = ">=1.1.8"
+
+[tool.poetry.group.dumpers.dependencies]
+pyyaml = "^6.0.2"
 
 [tool.poetry.dependencies]
 python = "^3.10"
