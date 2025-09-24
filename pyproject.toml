@@ -1,0 +1,42 @@
+[tool.poetry]
+name = "CCDCOE"
+version = "0.0.1"
+description = "Package with general devops code"
+readme = "README.md"
+repository = "https://github.com/ccdcoe/ccdcoe"
+authors = ["CCDCOE <ccdcoe@invalid.com>"]
+license = "GNU General Public License v3.0"
+classifiers=[
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
+
+
+[tool.poetry.urls]
+"Code" = "https://github.com/ccdcoe/ccdcoe"
+
+
+[tool.ccdcoe.group.dependencies]
+gitlab_bot = ["http_apis"]
+
+[tool.poetry.group.http_apis.dependencies]
+requests = ">=2.31.0"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+setuptools = ">=68.1.0"
+
+[build-system]
+requires = ["setuptools >= 61.0", "poetry == 1.8.4"]
+build-backend = "setuptools.build_meta"
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+tests = []
+skips = []
