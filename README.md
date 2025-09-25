@@ -30,6 +30,9 @@ The following modules are available in the ccdcoe package:
 
 * http_apis
 * loggers
+* dumpers
+* deployments
+* cli
 
 ### HTTP apis
 

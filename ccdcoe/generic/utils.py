@@ -54,12 +54,22 @@ def getenv_dict(name: str, default: dict = None):
     return default
 
 
-def getenv_str(name: str, default: str = None, mandatory: bool = False):
+def getenv_str(
+    name: str,
+    default: str = None,
+    mandatory: bool = False,
+    config_file_location: str = None,
+):
     raw = os.getenv(name, default)
 
     if mandatory:
         if raw == __MANDATORY_VALUE__:
-            raise ValueError(f"{name} is not set!")
+            raise ValueError(
+                f"Mandatory variable: {name} is not set!"
+                if config_file_location is None
+                else f"Mandatory variable: {name} is not set; set this variable in the config file "
+                     f"located at: {config_file_location}!"
+            )
 
     return raw
 

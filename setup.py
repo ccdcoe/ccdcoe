@@ -154,7 +154,8 @@ def generate_meta():
         "include_package_data": True,
         "project_urls": poetry.package.custom_urls,
         "classifiers": poetry.package.classifiers,
-        "entry_points": {"console_scripts": ["ccdcoe = ccdcoe.cli:cli"]},
+        "entry_points": {"console_scripts": ["ccdcoe = ccdcoe.cli:main"]},
+        "package_data": {"ccdcoe": ["LICENSE", "deployments/.env_example"]},
     }
 
 
