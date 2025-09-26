@@ -1,9 +1,9 @@
 ## How to use
 ```python
 from redis import StrictRedis
-from nldcsc.redis_cache import RedisCache
+from ccdcoe.redis_cache import RedisCache
 
-client = StrictRedis(host="redis", decode_responses=True)  # or use async version of resdis client
+client = StrictRedis(host="redis", decode_responses=True)  # or use async version of redis client
 cache = RedisCache(redis_client=client)
 
 

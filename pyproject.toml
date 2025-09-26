@@ -28,7 +28,7 @@ cli_code = ["cli","common", "deployments", "http_apis", "loggers", "dumpers"]
 deployment_code = ["common", "deployments", "http_apis", "loggers"]
 
 [tool.poetry.group.common.dependencies]
-python-gitlab = "^5.6.0"
+python-gitlab = "^6.3.0"
 python-dotenv = "^1.0.1"
 dataclasses-json = "^0.6.7"
 
