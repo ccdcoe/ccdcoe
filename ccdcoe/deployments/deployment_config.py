@@ -20,7 +20,8 @@ if os.getenv("NON_PACKAGE_MODE") is None:
     load_dotenv(os.path.join(user_wd, ".env"))
 
     config_file_location = os.path.join(user_wd, ".env")
-
+else:
+    config_file_location = None
 
 class Config(object):
     DEBUG: bool = getenv_bool("DEBUG", "False")
