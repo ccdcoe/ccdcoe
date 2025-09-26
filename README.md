@@ -33,6 +33,7 @@ The following modules are available in the ccdcoe package:
 * dumpers
 * deployments
 * cli
+* redis_cache
 
 ### HTTP apis
 
