@@ -1,24 +1,25 @@
 import os
 import shutil
 
-from dotenv import load_dotenv
-
-if not os.path.exists(os.path.expanduser("~/.ccdcoe")):
-    os.mkdir(os.path.expanduser("~/.ccdcoe"))
-
-user_wd = os.path.expanduser("~/.ccdcoe")
-
-if not os.path.exists(os.path.join(user_wd, ".env")):
-    shutil.copyfile(
-        os.path.join(os.path.dirname(__file__), ".env_example"),
-        os.path.join(user_wd, ".env"),
-    )
-
-load_dotenv(os.path.join(user_wd, ".env"))
-
-config_file_location = os.path.join(user_wd, ".env")
-
 from ccdcoe.generic.utils import getenv_bool, __MANDATORY_VALUE__, getenv_str
+
+if os.getenv("NON_PACKAGE_MODE") is None:
+    from dotenv import load_dotenv
+
+    if not os.path.exists(os.path.expanduser("~/.ccdcoe")):
+        os.mkdir(os.path.expanduser("~/.ccdcoe"))
+
+    user_wd = os.path.expanduser("~/.ccdcoe")
+
+    if not os.path.exists(os.path.join(user_wd, ".env")):
+        shutil.copyfile(
+            os.path.join(os.path.dirname(__file__), ".env_example"),
+            os.path.join(user_wd, ".env"),
+        )
+
+    load_dotenv(os.path.join(user_wd, ".env"))
+
+    config_file_location = os.path.join(user_wd, ".env")
 
 
 class Config(object):
