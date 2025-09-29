@@ -1,6 +1,11 @@
+import logging
 from typing import List
 
-from ccdcoe.cli_cmds.deploy_cmds.commands import logger
+from ccdcoe.loggers.console_logger import ConsoleLogger
+
+logging.setLoggerClass(ConsoleLogger)
+
+logger = logging.getLogger(__name__)
 
 
 def parse_team_number(team_number: str) -> List[int]:
