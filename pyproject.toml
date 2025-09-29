@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "CCDCOE"
-version = "0.0.15"
+version = "0.0.16"
 description = "Package with general devops code"
 readme = "README.md"
 repository = "https://github.com/ccdcoe/ccdcoe"
