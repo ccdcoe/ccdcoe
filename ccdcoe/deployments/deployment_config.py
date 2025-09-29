@@ -23,6 +23,7 @@ if os.getenv("NON_PACKAGE_MODE") is None:
 else:
     config_file_location = None
 
+
 class Config(object):
     DEBUG: bool = getenv_bool("DEBUG", "False")
 

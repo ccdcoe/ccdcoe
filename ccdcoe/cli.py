@@ -57,6 +57,7 @@ def main(ctx, log_level, verbose):
 
     logger.debug("DEBUG Logging configured.....")
 
+
 main.add_command(deploy_commands.deploy_cmd)
 main.add_command(providentia_commands.providentia_cmd)
 main.add_command(pipeline_commands.pipeline_cmd)

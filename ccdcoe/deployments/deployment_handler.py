@@ -82,9 +82,6 @@ class DeploymentHandler(object):
             api_key=self.config.PROVIDENTIA_TOKEN,
         )
 
-        self.beg_regex = re.compile(r"beg")
-        self.baf_regex = re.compile(r"baf")
-
     def __repr__(self):
         return "<<DeploymentHandler>>"
 

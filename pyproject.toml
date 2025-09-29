@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "CCDCOE"
-version = "0.0.10"
+version = "0.0.11"
 description = "Package with general devops code"
 readme = "README.md"
 repository = "https://github.com/ccdcoe/ccdcoe"
@@ -23,9 +23,53 @@ classifiers=[
 
 
 [tool.ccdcoe.group.dependencies]
-gitlab_bot = ["common", "deployments", "http_apis", "loggers", "cache_redis"]
+gitlab_bot = ["common", "loggers", "cache_redis"]
 cli_code = ["cli","common", "deployments", "http_apis", "loggers", "dumpers"]
 deployment_code = ["common", "deployments", "http_apis", "loggers"]
+web_flask = [
+    "common",
+    "loggers",
+    "cache_redis",
+    "auth",
+    "sso",
+    "flask_managers",
+    "flask_middleware",
+    "flask_plugins",
+    "cli"
+]
+
+[tool.poetry.group.auth.dependencies]
+python-ldap = ">=3.4.3"
+click = "8.1.7"
+
+[tool.poetry.group.sso.dependencies]
+authlib = ">=1.6.4"
+flask = ">=2.3.3"
+pyjwt = ">=2.8.0"
+
+[tool.poetry.group.flask_managers.dependencies]
+gunicorn = ">=21.2.0"
+flask = ">=2.3.3"
+pyopenssl = ">=23.2.0"
+werkzeug = ">=2.3.7"
+flask-socketio = ">=5.3.6"
+
+[tool.poetry.group.flask_middleware.dependencies]
+rfc3339 = ">=6.2"
+
+[tool.poetry.group.flask_plugins.dependencies]
+flask = ">=2.3.3"
+sqlalchemy = ">=2.0.21"
+flask-sqlalchemy = ">=3.1.1"
+flask-migrate = ">=4.0.5"
+werkzeug = ">=2.3.7"
+
+[tool.poetry.group.flask_plugins_es.dependencies]
+eswrap = ">=0.5.0"
+elasticsearch = ">=8.7.0"
+
+[tool.poetry.group.flask_plugins_kafka.dependencies]
+kafka-python = ">=2.0.2"
 
 [tool.poetry.group.common.dependencies]
 python-gitlab = "^6.3.0"

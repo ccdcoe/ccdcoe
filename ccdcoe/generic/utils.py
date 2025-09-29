@@ -68,7 +68,7 @@ def getenv_str(
                 f"Mandatory variable: {name} is not set!"
                 if config_file_location is None
                 else f"Mandatory variable: {name} is not set; set this variable in the config file "
-                     f"located at: {config_file_location}!"
+                f"located at: {config_file_location}!"
             )
 
     return raw
