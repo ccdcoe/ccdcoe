@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "CCDCOE"
-version = "0.0.11"
+version = "0.0.12"
 description = "Package with general devops code"
 readme = "README.md"
 repository = "https://github.com/ccdcoe/ccdcoe"
@@ -40,7 +40,6 @@ web_flask = [
 
 [tool.poetry.group.auth.dependencies]
 python-ldap = ">=3.4.3"
-click = "8.1.7"
 
 [tool.poetry.group.sso.dependencies]
 authlib = ">=1.6.4"
