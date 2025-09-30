@@ -2,9 +2,9 @@ import logging
 import subprocess
 from typing import List
 
-from ccdcoe.loggers.app_logger import AppLogger
+from ccdcoe.loggers.console_logger import ConsoleLogger
 
-logging.setLoggerClass(AppLogger)
+logging.setLoggerClass(ConsoleLogger)
 
 
 class BaseCLIRunner(object):
