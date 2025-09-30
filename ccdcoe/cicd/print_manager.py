@@ -37,5 +37,9 @@ class PrintManager:
         print(f"{PrintManager.BOLD}{PrintManager.FAIL}{msg}{PrintManager.ENDC}")
 
     @staticmethod
+    def print_warning(msg: str) -> None:
+        print(f"{PrintManager.BOLD}{PrintManager.WARNING}{msg}{PrintManager.ENDC}")
+
+    @staticmethod
     def print_ok(msg: str) -> None:
         print(f"{PrintManager.BOLD}{PrintManager.OKGREEN}{msg}{PrintManager.ENDC}")
