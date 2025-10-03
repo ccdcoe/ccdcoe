@@ -115,11 +115,11 @@ def config(
     if only_hosts is not None:
         only_hosts = only_hosts.replace(" ", "").split(",")
     if actor is not None:
-        actor = actor.replace(" ", "").split(",")
+        actor = [a.strip().upper() for a in actor.split(",")]
     if large_tiers is not None:
-        large_tiers = large_tiers.replace(" ", "").split(",")
+        large_tiers = [l.strip().upper() for l in large_tiers.split(",")]
     if standalone_tiers is not None:
-        standalone_tiers = standalone_tiers.replace(" ", "").split(",")
+        standalone_tiers = [s.strip().upper() for s in standalone_tiers.split(",")]
 
     deployment_handler.logger.info(f"Fetching tier assignment...")
     gitlab_ci_data = deployment_handler.get_gitlab_ci_from_tier_assignment(

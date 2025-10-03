@@ -672,9 +672,6 @@ class DeploymentHandler(object):
 
         tier_assignments = self.get_tier_assignments_providentia()
 
-        large_tiers = [elem.upper() for elem in large_tiers]
-        standalone_tiers = [elem.upper() for elem in standalone_tiers]
-
         gitlab_ci = self.generate_gitlab_ci(
             data=tier_assignments,
             skip_hosts=skip_hosts,
