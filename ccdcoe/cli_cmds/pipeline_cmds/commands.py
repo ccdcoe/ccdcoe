@@ -90,6 +90,14 @@ def pipeline_cmd(ctx):
     show_default=True,
 )
 @click.option(
+    "--reverse_deploy_order",
+    help="Reverse the deployment order",
+    default=False,
+    is_flag=False,
+    flag_value="",
+    show_default=True,
+)
+@click.option(
     "--docker_image_count",
     help="Number of available docker images",
     default=1,
@@ -108,6 +116,7 @@ def config(
     large_tiers: str = None,
     standalone_tiers: str = None,
     ignore_deploy_order: bool = False,
+    reverse_deploy_order: bool = False,
     docker_image_count: int = 1,
 ):
     if skip_hosts is not None:
@@ -129,6 +138,7 @@ def config(
         large_tiers=large_tiers,
         standalone_tiers=standalone_tiers,
         ignore_deploy_order=ignore_deploy_order,
+        reverse_deploy_order=reverse_deploy_order,
         docker_image_count=docker_image_count,
     )
     if show:
