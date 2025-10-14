@@ -518,8 +518,6 @@ class DeploymentHandler(object):
         # Prepare GitLab CI/CD pipeline structure
         gitlab_ci = {"stages": top_level_tiers}
 
-        mandatory_actors = ["GT", "RT"]
-
         jobs = {}
 
         for i, tier in enumerate(tiers):
@@ -540,11 +538,7 @@ class DeploymentHandler(object):
                 host = host.strip()
                 host_actor = host_actor["actor"].strip()
 
-                if (
-                    any(actor)
-                    and host_actor.upper() not in actor
-                    and host_actor.upper() not in mandatory_actors
-                ):
+                if host_actor.upper() not in actor and any(actor):
                     continue
                 if (any(only_hosts) and host in only_hosts) or (
                     not any(only_hosts) and host not in skip_hosts
