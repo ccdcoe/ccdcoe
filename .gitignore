@@ -370,3 +370,4 @@ cython_debug/
 .idea/
 
 dev_data
+/tests/test_data/
