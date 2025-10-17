@@ -1,3 +1,4 @@
+from dateutil.tz import UTC
 import calendar
 from datetime import datetime
 
@@ -96,7 +97,7 @@ def timestampTOdatetimestring(timestamp, vis=False):
     :return: date time object
     :rtype: datetime.datetime (format: '%d-%m-%YT%H:%M:%SZ')
     """
-    value = datetime.utcfromtimestamp(timestamp)
+    value = datetime.fromtimestamp(timestamp, UTC)
 
     if not vis:
         return value.strftime("%Y-%m-%dT%H:%M:%SZ")

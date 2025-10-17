@@ -95,6 +95,17 @@ tqdm = "^4.67.1"
 [tool.poetry.group.cache_redis.dependencies]
 redis = ">=5.0.0"
 
+[tool.poetry.group.tests]
+optional = true
+
+[tool.poetry.group.tests.dependencies]
+pytest = "^8.3.3"
+pytest-cov = "^6.0.0"
+pytest-env = "^1.1.5"
+tox = "^4.31.0"
+requests-mock = "^1.12.1"
+mock = "^5.1.0"
+
 [tool.poetry.dependencies]
 python = "^3.10"
 setuptools = ">=68.1.0"

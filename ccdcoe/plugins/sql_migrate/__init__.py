@@ -34,7 +34,7 @@ from .fractured_alembic.runtime.op_shell import (
     create_shell,
 )
 from .fractured_alembic.script.base import SqlScriptDirectory, SqlScriptDirectoryContext
-from .utils.helpers import timestamp_to_strf_string
+from ...generic.times import timestampTOdatetimestring
 
 dictConfig(LOGGING_CONFIG)
 
@@ -71,7 +71,7 @@ class SchemaMigrationRow:
         self.version_num = row.version_num
         self.name = row.name
         self.duration = row.duration
-        self.migrated = timestamp_to_strf_string(row.migrated)
+        self.migrated = timestampTOdatetimestring(row.migrated, True)
 
     @property
     def get_as_list(self):
