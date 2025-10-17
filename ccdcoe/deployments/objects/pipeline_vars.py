@@ -38,6 +38,7 @@ class PipelineVars(Validations):
     LARGE_TIERS: str = ""
     STANDALONE_TIERS: str = ""
     IGNORE_DEPLOY_ORDER: str = gitlab_boolean.DISABLED
+    REVERSE_DEPLOY_ORDER: str = gitlab_boolean.DISABLED
     DOCKER_IMAGE_COUNT: int = 1
     NOVA_VERSION: str = "PRODUCTION"
 
@@ -229,3 +230,6 @@ class PipelineVars(Validations):
 
     def validate_IGNORE_DEPLOY_ORDER(self, value: str, **_) -> str:
         return self.check_boolean_string_fields(value, "IGNORE_DEPLOY_ORDER")
+
+    def validate_REVERSE_DEPLOY_ORDER(self, value: str, **_) -> str:
+        return self.check_boolean_string_fields(value, "REVERSE_DEPLOY_ORDER")

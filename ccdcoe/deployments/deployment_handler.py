@@ -194,6 +194,7 @@ class DeploymentHandler(object):
         large_tiers: str = "",
         standalone_tiers: str = "",
         ignore_deploy_order: bool = False,
+        reverse_deploy_order: bool = False,
         docker_image_count: int = 1,
         nova_version: str = "PRODUCTION",
     ) -> ProjectPipeline:
@@ -240,6 +241,7 @@ class DeploymentHandler(object):
             tier_data["LARGE_TIERS"] = large_tiers
             tier_data["STANDALONE_TIERS"] = standalone_tiers
             tier_data["IGNORE_DEPLOY_ORDER"] = ignore_deploy_order
+            tier_data["REVERSE_DEPLOY_ORDER"] = reverse_deploy_order
             tier_data["DOCKER_IMAGE_COUNT"] = docker_image_count
             tier_data["NOVA_VERSION"] = nova_version
 
@@ -477,6 +479,7 @@ class DeploymentHandler(object):
         large_tiers: List[str] = None,
         standalone_tiers: List[str] = None,
         ignore_deploy_order: bool = False,
+        reverse_deploy_order: bool = False,
         docker_image_count: int = 1,
     ) -> dict[str, list]:
         if any(skip_hosts) and any(only_hosts):
@@ -509,10 +512,11 @@ class DeploymentHandler(object):
         # Sort numerically based on the number in "TierX"
         top_level_tiers.sort(key=lambda x: int(re.search(r"\d+", x).group()))
 
+        if reverse_deploy_order:
+            top_level_tiers.reverse()
+
         # Prepare GitLab CI/CD pipeline structure
         gitlab_ci = {"stages": top_level_tiers}
-
-        mandatory_actors = ["GT", "RT"]
 
         jobs = {}
 
@@ -534,11 +538,7 @@ class DeploymentHandler(object):
                 host = host.strip()
                 host_actor = host_actor["actor"].strip()
 
-                if (
-                    any(actor)
-                    and host_actor.upper() not in actor
-                    and host_actor.upper() not in mandatory_actors
-                ):
+                if host_actor.upper() not in actor and any(actor):
                     continue
                 if (any(only_hosts) and host in only_hosts) or (
                     not any(only_hosts) and host not in skip_hosts
@@ -646,7 +646,8 @@ class DeploymentHandler(object):
             if ignore_deploy_order:
                 continue
             else:
-                if i > 0:
+                # For normal order, add dependency to previous job
+                if not reverse_deploy_order and i > 0:
                     my_job_index = list(jobs.keys()).index(job_name)
                     # if top_level_tier.upper() not in exclude_tier_list:
                     jobs[job_name]["needs"] = [
@@ -656,6 +657,18 @@ class DeploymentHandler(object):
                                 if my_job_index == 0
                                 else list(jobs.keys())[my_job_index - 1]
                             ),
+                            "optional": True,
+                        }
+                    ]
+
+        # Handle reverse deploy order dependencies after all jobs are created
+        if not ignore_deploy_order and reverse_deploy_order:
+            job_keys = list(jobs.keys())
+            for idx, job_key in enumerate(job_keys):
+                if idx < len(job_keys) - 1:  # Not the last job
+                    jobs[job_key]["needs"] = [
+                        {
+                            "job": job_keys[idx + 1],
                             "optional": True,
                         }
                     ]
@@ -673,6 +686,7 @@ class DeploymentHandler(object):
         large_tiers: List[str] = None,
         standalone_tiers: List[str] = None,
         ignore_deploy_order: bool = False,
+        reverse_deploy_order: bool = False,
         docker_image_count: int = 1,
     ) -> dict[str, List[Any]]:
 
@@ -686,6 +700,7 @@ class DeploymentHandler(object):
             large_tiers=large_tiers,
             standalone_tiers=standalone_tiers,
             ignore_deploy_order=ignore_deploy_order,
+            reverse_deploy_order=reverse_deploy_order,
             docker_image_count=docker_image_count,
         )
 
