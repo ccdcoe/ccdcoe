@@ -14,3 +14,7 @@ Run `poetry run tox` to kick off the unit tests; all tests are part of the `<<re
 
 A coverage html report is also created (`<<repo_root_dir>>/htmlcov`) which can be used to check how much of the 
 code base is covered by the current tests.
+
+## Update the test data set
+
+If you would like to update the test data set you should make sure that a Providentia instance is reachable.

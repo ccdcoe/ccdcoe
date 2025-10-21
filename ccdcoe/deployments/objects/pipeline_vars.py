@@ -67,7 +67,7 @@ class PipelineVars(Validations):
                     )
             except TypeError:
                 raise ValueError(
-                    "CICD_TEAM must be a string or an integer that can be converted to an string."
+                    "CICD_TEAM must be a string or an integer that can be converted to a string."
                 )
         elif isinstance(self.CICD_TEAM, str):
             try:
@@ -90,7 +90,7 @@ class PipelineVars(Validations):
         else:
             return ValueError(
                 f"CICD_TEAM must be a string representation of an integer or an integer that can be "
-                f"converted to an string. NOT of type: {type(self.CICD_TEAM)}"
+                f"converted to a string. NOT of type: {type(self.CICD_TEAM)}"
             )
 
     def validate_SNAPSHOT_NAME(self, value: str, **_) -> str:
