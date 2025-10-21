@@ -103,7 +103,7 @@ class DeploymentHandler(object):
 
     def trigger_deployment_pipeline(
         self, reference: str = "main", variables: PipelineVars = None, **kwargs
-    ) -> ProjectPipeline:
+    ) -> ProjectPipeline:  # pragma: no cover
 
         self.logger.debug(
             f"Method '{inspect.currentframe().f_code.co_name}' called with arguments: {locals()}"
@@ -164,13 +164,10 @@ class DeploymentHandler(object):
         )
 
         if retrieve_all:
-            ret_dict = {}
-            for key, val in __UNIQUE_TIERS__.items():
-                if show_bear_level:
-                    ret_dict.update({key: val().show_bear_level()})
-                else:
-                    ret_dict.update({key: val().as_dict()})
-            return ret_dict
+            if show_bear_level:
+                return {k: v().show_bear_level() for (k, v) in __UNIQUE_TIERS__.items()}
+            else:
+                return {k: v().as_dict() for (k, v) in __UNIQUE_TIERS__.items()}
         else:
             if give_back_full:
                 return __FULL_TIERS__[tier_level]()
@@ -213,12 +210,12 @@ class DeploymentHandler(object):
 
                 tier_assignments = self.get_tier_assignments_providentia()
                 tiers = list(tier_assignments.keys())
-                for tl in range(0, 10):  # fix this
+                for tl in range(0, len(__UNIQUE_TIERS__)):
                     setattr(the_tier, f"REDEPLOY_TIER{tl}", gitlab_boolean.DISABLED)
                 for i, tier in enumerate(tiers):
                     top_level_tier = re.sub(r"[a-zA-Z]$", "", tier)
                     for host in tier_assignments[tier]:
-                        if host in only_hosts_list:
+                        if list(host.keys())[0] in only_hosts_list:
                             setattr(
                                 the_tier,
                                 f"REDEPLOY_{top_level_tier.upper()}",
@@ -285,7 +282,7 @@ class DeploymentHandler(object):
         team_number: int = 28,
         update_delta_in_hours: int = 4,
         return_pipeline_details: bool = True,
-    ) -> ProjectPipeline | PipelineDetails | None:
+    ) -> ProjectPipeline | PipelineDetails | None:  # pragma: no cover
         """
         in order to limit the amount of records coming back; a time cap is used; so this command only fetches the
         results from pipelines that are updated the last 4 hours (default; can be controlled via the \
@@ -331,7 +328,7 @@ class DeploymentHandler(object):
         reference: str = "main",
         team_number: int | List[int] = 28,
         fetch_all: bool = False,
-    ) -> Tuple[List[str], List[str]]:
+    ) -> Tuple[List[str], List[str]]:  # pragma: no cover
 
         self.logger.debug(
             f"Method '{inspect.currentframe().f_code.co_name}' called with arguments: {locals()}"
@@ -379,7 +376,9 @@ class DeploymentHandler(object):
 
         return header_list, entry_list
 
-    def get_hosts_per_network_providentia(self):
+    def get_hosts_per_network_providentia(
+        self,
+    ) -> dict[dict, dict[str, Any] | list[dict[str, Any]]]:
 
         self.logger.info(f"Fetching all networks...")
         all_networks = self.providentia.environment_networks(
@@ -407,7 +406,11 @@ class DeploymentHandler(object):
             self.config.PROJECT_VERSION
         )
 
-        all_hosts = [x for x in host_inventory["result"] if x["actor_id"] != "gt"]
+        all_hosts = [
+            x
+            for x in host_inventory["result"]
+            if x["actor_id"] != "gt" or x["actor_id"] != "for"
+        ]
 
         for host in all_hosts:
             try:
@@ -432,7 +435,7 @@ class DeploymentHandler(object):
 
         ret_dict = defaultdict(list)
 
-        for host in tqdm(the_inventory["result"], desc="Processing tier assignments"):
+        for host in the_inventory["result"]:
             tag_list = sorted(
                 list(filter(tier_regex.match, host["tags"])), reverse=True
             )
@@ -482,11 +485,13 @@ class DeploymentHandler(object):
         reverse_deploy_order: bool = False,
         docker_image_count: int = 1,
     ) -> dict[str, list]:
-        if any(skip_hosts) and any(only_hosts):
-            self.logger.warning(
-                f"Warning: Both --skip_hosts and --only_hosts provided; --only_hosts takes precedence"
-            )
-            skip_hosts = []  # only_hosts takes precedence
+        if skip_hosts is not None and only_hosts is not None:
+            if any(skip_hosts) and any(only_hosts):
+                self.logger.warning(
+                    f"Warning: Both --skip_hosts and --only_hosts provided; --only_hosts takes precedence"
+                )
+                skip_hosts = []  # only_hosts takes precedence
+
         if skip_hosts is None:
             skip_hosts = []
 
@@ -546,9 +551,7 @@ class DeploymentHandler(object):
                     # Skip team suffix for standalone tiers
                     add_team_suffix = top_level_tier.upper() not in standalone_tiers
 
-                    team_nr = getenv_str("CICD_TEAM", "28")
-                    if int(team_nr) < 10:
-                        team_nr = f"0{team_nr}"
+                    team_nr = "{0:02d}".format(int(getenv_str("CICD_TEAM", "28")))
 
                     if "||" in host:
                         hostname, count_str = host.split("||")
