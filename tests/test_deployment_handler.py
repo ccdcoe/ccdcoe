@@ -138,6 +138,12 @@ class TestDeploymentHandler:
         new_gitlab_ci = dh.get_gitlab_ci_from_tier_assignment(ignore_deploy_order=True)
         assert "needs" not in new_gitlab_ci["tier3b"]
 
+        new_gitlab_ci = dh.get_gitlab_ci_from_tier_assignment(
+            only_hosts=["test2"], standalone_deployment=True
+        )
+        assert new_gitlab_ci["stages"] == ["Tier0"]
+        assert "test2" in new_gitlab_ci["tier0a"]["parallel"]["matrix"][0]["HOST"]
+
         # testing fetching tiers
         assert isinstance(dh.get_tier(1), Tier1)
         assert isinstance(dh.get_tier(2, True), FullTier2)
@@ -255,7 +261,7 @@ class TestDeploymentHandler:
             ),
         ],
     )
-    def test_dummy_deployment(
+    def test_dummy_team_deployment(
         self,
         prov_env_inventory,
         prov_env_networks,
@@ -283,6 +289,64 @@ class TestDeploymentHandler:
             mock_deployment.return_value = FakeProjectPipeline()
 
             data = dh.deploy_team(**deploy_data)
+
+            assert data == deploy_msg
+            mocked_function.assert_called_once_with(
+                reference="main", variables=mock_pipeline_vars
+            )
+
+    @mock.patch(
+        "ccdcoe.deployments.deployment_handler.ProvidentiaApi.environment_networks"
+    )
+    @mock.patch(
+        "ccdcoe.deployments.deployment_handler.ProvidentiaApi.environment_inventory"
+    )
+    @pytest.mark.parametrize(
+        "deploy_data, mock_pipeline_vars, deploy_msg",
+        [
+            pytest.param(
+                {"only_hosts": "web-target-1"},
+                PipelineVars(
+                    CICD_TEAM="SA",
+                    REDEPLOY_TIER0=gitlab_boolean.ENABLED,
+                    DEPLOY_DESCRIPTION="LIMITED to hosts: web-target-1, skip_vulns: False",
+                    ONLY_HOSTS="web-target-1",
+                    STANDALONE_DEPLOYMENT=gitlab_boolean.ENABLED,
+                ),
+                "Project pipeline for standalone deployment(LIMITED to hosts: web-target-1, skip_vulns: False) deployed -> "
+                "pipeline id fake_pipeline_id status: fake_pipeline_status ref: fake_pipeline_ref",
+            ),
+        ],
+    )
+    def test_dummy_standalone_deployment(
+        self,
+        prov_env_inventory,
+        prov_env_networks,
+        deploy_data,
+        mock_config_object,
+        v3_environment_inventory_endpoint,
+        v3_environment_networks_endpoint,
+        mock_pipeline_vars,
+        deploy_msg,
+    ):
+
+        # mocking return to test_data
+        prov_env_inventory.return_value = v3_environment_inventory_endpoint
+        prov_env_networks.return_value = v3_environment_networks_endpoint
+
+        from ccdcoe.deployments.deployment_handler import DeploymentHandler
+
+        dh = DeploymentHandler()
+
+        mock_deployment = Mock()
+
+        with mock.patch(
+            "ccdcoe.deployments.deployment_handler.DeploymentHandler.trigger_deployment_pipeline",
+            side_effect=mock_deployment,
+        ) as mocked_function:
+            mock_deployment.return_value = FakeProjectPipeline()
+
+            data = dh.deploy_standalone(**deploy_data)
 
             assert data == deploy_msg
             mocked_function.assert_called_once_with(

@@ -13,7 +13,7 @@ Install the full package:
 pip install ccdcoe[all]
 ```
 
-Package has several modules which can be installed separately by specifying them 
+This package has several modules which can be installed separately by specifying them 
 as an extra requirement. To install the http_apis module only, specify:
 
 ```
@@ -23,6 +23,24 @@ Or for multiple modules:
 ```
 pip install ccdcoe[http_apis, loggers]
 ```
+
+## Command line interface
+
+The ccdcoe package contains a cli application for providentia/gitlab communication and controlling the vm deployment
+pipelines; if this is the only thing you would like to use from the package please run:
+
+```
+pip install ccdcoe[cli_code]
+```
+
+The CLI application supports tab completion; for bash add `eval "$(_CCDCOE_COMPLETE=bash_source ccdcoe)"` to your 
+.bashrc to activate the tab completion. 
+Or you could save the output of the following command as a script somewhere 
+`_FOO_BAR_COMPLETE=bash_source foo-bar > ~/.foo-bar-complete.bash` and source that file in your .bashrc like so: 
+`. ~/.foo-bar-complete.bash`
+
+Other shells (Zsh, Fish) are supported as well; please check the 
+[click documentation](https://click.palletsprojects.com/en/stable/shell-completion/)
 
 ## Adding modules and/or groups
 

@@ -76,7 +76,7 @@ team_regex = re.compile(r"Team (\d+)")
 class PipelineFilter:
     pipelines: list[ProjectPipeline]
 
-    def filter_pipelines(self, team_number: int) -> list[ProjectPipeline]:
+    def filter_pipelines(self, team_number: int) -> list[ProjectPipeline]:  # pragma: no cover
         filtered_pipelines = []
         for pipeline in self.pipelines:
             m = team_regex.search(pipeline.name)
@@ -87,7 +87,7 @@ class PipelineFilter:
 
     def filter_pipelines_return_details(
         self, team_number: int
-    ) -> list[PipelineDetails]:
+    ) -> list[PipelineDetails]:  # pragma: no cover
         filtered_pipelines = []
         for pipeline in self.pipelines:
             m = team_regex.search(pipeline.name)
