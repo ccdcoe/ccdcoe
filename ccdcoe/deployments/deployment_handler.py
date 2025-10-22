@@ -613,7 +613,7 @@ class DeploymentHandler(object):
             else:
                 job_tag = self.config.TAG_RUNNER_SLIM
 
-            if docker_image_count > 1:
+            if docker_image_count >= 1:
                 random_image_number = random.randint(1, docker_image_count)
                 docker_image = f"{self.config.NEXUS_HOST}/{self.config.PROJECT_VERSION}-cicd-image-{random_image_number}:latest"
             else:
