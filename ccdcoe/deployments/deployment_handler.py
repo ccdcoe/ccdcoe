@@ -4,6 +4,7 @@ import logging
 import random
 import re
 from collections import defaultdict
+from dataclasses import dataclass
 from typing import Any, List, Tuple
 
 import gitlab
@@ -67,6 +68,42 @@ __FULL_TIERS__ = {
     8: FullTier8,
     9: FullTier9,
 }
+
+team_regex = re.compile(r"Team (\d+)")
+
+
+@dataclass
+class PipelineFilter:
+    pipelines: list[ProjectPipeline]
+
+    def filter_pipelines(self, team_number: int) -> list[ProjectPipeline]:
+        filtered_pipelines = []
+        for pipeline in self.pipelines:
+            m = team_regex.search(pipeline.name)
+            if m is not None:
+                if int(m.groups()[0]) == team_number:
+                    filtered_pipelines.append(pipeline)
+        return filtered_pipelines
+
+    def filter_pipelines_return_details(
+        self, team_number: int
+    ) -> list[PipelineDetails]:
+        filtered_pipelines = []
+        for pipeline in self.pipelines:
+            m = team_regex.search(pipeline.name)
+            if m is not None:
+                if int(m.groups()[0]) == team_number:
+                    filtered_pipelines.append(
+                        PipelineDetails(
+                            pipeline.id,
+                            pipeline.name,
+                            pipeline.ref,
+                            pipeline.status,
+                            pipeline.web_url,
+                            pipeline.updated_at,
+                        )
+                    )
+        return filtered_pipelines
 
 
 class DeploymentHandler(object):
@@ -282,12 +319,14 @@ class DeploymentHandler(object):
         team_number: int = 28,
         update_delta_in_hours: int = 4,
         return_pipeline_details: bool = True,
-    ) -> ProjectPipeline | PipelineDetails | None:  # pragma: no cover
+    ) -> ProjectPipeline | list[PipelineDetails] | None:  # pragma: no cover
         """
         in order to limit the amount of records coming back; a time cap is used; so this command only fetches the
         results from pipelines that are updated the last 4 hours (default; can be controlled via the \
         'update_delta_in_hours' variable). If that yields more then 1 result; it will return the last entry.
         """
+
+        team_regex = re.compile(r"")
 
         self.logger.debug(
             f"Method '{inspect.currentframe().f_code.co_name}' called with arguments: {locals()}"
@@ -302,24 +341,17 @@ class DeploymentHandler(object):
 
         pipelines = the_project.pipelines.list(
             ref=reference,
-            get_all=False,
+            get_all=True,
             updated_after=iso_formatted_delta,
         )
+
+        pf = PipelineFilter(pipelines=pipelines)
 
         if len(pipelines) == 0:
             return None
 
         if return_pipeline_details:
-            project_pipeline = pipelines[0]
-            project_pipeline_details = PipelineDetails(
-                project_pipeline.id,
-                project_pipeline.name,
-                project_pipeline.ref,
-                project_pipeline.status,
-                project_pipeline.web_url,
-                project_pipeline.updated_at,
-            )
-            return project_pipeline_details
+            return pf.filter_pipelines_return_details(team_number=team_number)
         else:
             return pipelines[0]
 
@@ -348,7 +380,7 @@ class DeploymentHandler(object):
                     reference=reference, team_number=i, return_pipeline_details=True
                 )
                 if details_obj is not None:
-                    entry_list.append(details_obj.get_entry_list())
+                    entry_list.extend([x.get_entry_list() for x in details_obj])
         else:
             if isinstance(team_number, int):
                 team_number = [team_number]
@@ -360,7 +392,7 @@ class DeploymentHandler(object):
                         return_pipeline_details=True,
                     )
                     if details_obj is not None:
-                        entry_list.append(details_obj.get_entry_list())
+                        entry_list.extend([x.get_entry_list() for x in details_obj])
             else:
                 for each in tqdm(
                     team_number,
@@ -372,7 +404,7 @@ class DeploymentHandler(object):
                         return_pipeline_details=True,
                     )
                     if details_obj is not None:
-                        entry_list.append(details_obj.get_entry_list())
+                        entry_list.extend([x.get_entry_list() for x in details_obj])
 
         return header_list, entry_list
 
