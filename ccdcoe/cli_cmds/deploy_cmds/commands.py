@@ -522,6 +522,69 @@ def tier(
 
 
 @deploy_cmd.command(
+    help="Perform a standalone deployment.\n\nA standalone deployment is a deployment that does not take into account "
+    "any tiers; but simply deploys the selected hosts in a single parallel stage.",
+    no_args_is_help=True,
+)
+@add_options(_branch_option)
+@add_options(_skip_vulns_option)
+@add_options(_snapshot_option)
+@add_options(_deploy_mode_option)
+@add_options(_only_hosts_option)
+@click.pass_obj
+def standalone(
+    deployment_handler: DeploymentHandler,
+    branch: str,
+    snap_name: str,
+    deploy: bool = False,
+    undeploy: bool = False,
+    snap_deploy: bool = False,
+    clean_snap_deploy: bool = False,
+    clean_snap_deploy_shutdown: bool = False,
+    revert: bool = False,
+    poweron: bool = False,
+    shutdown: bool = False,
+    skip_vulns: bool = False,
+    snapshot: bool = False,
+    only_hosts: str = "",
+):
+    if deploy:
+        deployment_mode = deploy_modes.DEPLOY
+    elif undeploy:
+        deployment_mode = deploy_modes.UNDEPLOY
+    elif snap_deploy:
+        deployment_mode = deploy_modes.DEPLOY_SNAP
+    elif clean_snap_deploy:
+        deployment_mode = deploy_modes.DEPLOY_CLEAN_SNAP
+    elif clean_snap_deploy_shutdown:
+        deployment_mode = deploy_modes.DEPLOY_CLEAN_SNAP_SHUTDOWN
+    elif revert:
+        deployment_mode = deploy_modes.REVERT
+    elif poweron:
+        deployment_mode = deploy_modes.POWERON
+    elif shutdown:
+        deployment_mode = deploy_modes.SHUTDOWN
+    else:
+        deployment_mode = deploy_modes.REDEPLOY
+
+    deployment_handler.logger.info(
+        f"Initiating standalone deployment for hosts: {only_hosts}..."
+    )
+    ret_data = deployment_handler.deploy_standalone(
+        reference=branch,
+        deploy_mode=deployment_mode,
+        skip_vulns=skip_vulns,
+        snapshot=snapshot,
+        snap_name=snap_name,
+        only_hosts=only_hosts,
+    )
+    deployment_handler.logger.info(
+        f"Standalone deployment for hosts: {only_hosts} started!"
+    )
+    ConsoleOutput.print(ret_data)
+
+
+@deploy_cmd.command(
     help="Show status of deployments.",
     no_args_is_help=True,
 )

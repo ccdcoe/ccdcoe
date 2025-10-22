@@ -37,6 +37,7 @@ class PipelineVars(Validations):
     ACTOR: str = ""
     LARGE_TIERS: str = ""
     STANDALONE_TIERS: str = ""
+    STANDALONE_DEPLOYMENT: str = gitlab_boolean.DISABLED
     IGNORE_DEPLOY_ORDER: str = gitlab_boolean.DISABLED
     REVERSE_DEPLOY_ORDER: str = gitlab_boolean.DISABLED
     DOCKER_IMAGE_COUNT: int = 1
@@ -71,6 +72,8 @@ class PipelineVars(Validations):
                 )
         elif isinstance(self.CICD_TEAM, str):
             try:
+                if self.CICD_TEAM == "SA":
+                    return value
                 if check_range(int(self.CICD_TEAM)):
                     return value
                 else:

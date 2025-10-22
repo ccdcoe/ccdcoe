@@ -313,6 +313,55 @@ class DeploymentHandler(object):
         except Exception as e:
             self.logger.error(f"Uncaught exception -> {e}")
 
+    def deploy_standalone(
+        self,
+        reference: str = "main",
+        deploy_mode: str = deploy_modes.REDEPLOY,
+        skip_vulns: bool = False,
+        snapshot: bool = True,
+        snap_name: str = "CLEAN",
+        only_hosts: str = "",
+    ) -> ProjectPipeline:
+
+        self.logger.debug(
+            f"Method '{inspect.currentframe().f_code.co_name}' called with arguments: {locals()}"
+        )
+
+        try:
+            the_tier = self.get_tier()
+
+            tier_data = the_tier.as_dict()
+            tier_data["CICD_TEAM"] = "SA"
+            tier_data["DEPLOY_MODE"] = deploy_mode
+            tier_data["SKIP_VULNS"] = skip_vulns
+            tier_data["SNAPSHOT"] = snapshot
+            tier_data["SNAPSHOT_NAME"] = snap_name
+            tier_data["ONLY_HOSTS"] = only_hosts
+            tier_data["STANDALONE_DEPLOYMENT"] = gitlab_boolean.ENABLED
+
+            if only_hosts:
+                description = (
+                    f"LIMITED to hosts: {only_hosts}, skip_vulns: {skip_vulns}"
+                )
+
+            if len(description) >= 255:
+                description = (
+                    description[:220] + "-TRUNCATED"
+                )  # accounting for 'redeploy Team xx as well'
+
+            tier_data["DEPLOY_DESCRIPTION"] = description
+
+            project_pipeline = self.custom_deployment(
+                reference=reference, variables=tier_data
+            )
+            if project_pipeline is not None:
+                return (
+                    f"Project pipeline for standalone deployment({description}) deployed -> "
+                    f"pipeline id {project_pipeline.id} status: {project_pipeline.status} ref: {project_pipeline.ref}"
+                )
+        except Exception as e:
+            self.logger.error(f"Uncaught exception -> {e}")
+
     def get_last_deployment_pipeline(
         self,
         reference: str = "main",
@@ -504,7 +553,7 @@ class DeploymentHandler(object):
 
     def generate_gitlab_ci(
         self,
-        data: dict[str, List[str]],
+        data: dict[str, List[dict[str, dict[str, Any]]]],
         skip_hosts: List[str] = None,
         only_hosts: List[str] = None,
         actor: List[str] = None,
@@ -513,6 +562,7 @@ class DeploymentHandler(object):
         ignore_deploy_order: bool = False,
         reverse_deploy_order: bool = False,
         docker_image_count: int = 1,
+        standalone_deployment: bool = False,
     ) -> dict[str, list]:
         if skip_hosts is not None and only_hosts is not None:
             if any(skip_hosts) and any(only_hosts):
@@ -580,7 +630,8 @@ class DeploymentHandler(object):
                     # Skip team suffix for standalone tiers
                     add_team_suffix = top_level_tier.upper() not in standalone_tiers
 
-                    team_nr = "{0:02d}".format(int(getenv_str("CICD_TEAM", "28")))
+                    if add_team_suffix:
+                        team_nr = "{0:02d}".format(int(getenv_str("CICD_TEAM", "28")))
 
                     if "||" in host:
                         hostname, count_str = host.split("||")
@@ -627,7 +678,6 @@ class DeploymentHandler(object):
 
                             entry = f"{hostname}_{pattern}"
                             if add_team_suffix:
-
                                 entry += f"_t{team_nr}"
                             host_list.append(entry)
                     else:
@@ -720,9 +770,14 @@ class DeploymentHandler(object):
         ignore_deploy_order: bool = False,
         reverse_deploy_order: bool = False,
         docker_image_count: int = 1,
+        standalone_deployment: bool = False,
     ) -> dict[str, List[Any]]:
 
-        tier_assignments = self.get_tier_assignments_providentia()
+        if not standalone_deployment:
+            tier_assignments = self.get_tier_assignments_providentia()
+        else:
+            tier_assignments = {"Tier0a":[{x:{'actor': 'SA'}} for x in only_hosts]}
+            standalone_tiers = "TIER0"
 
         gitlab_ci = self.generate_gitlab_ci(
             data=tier_assignments,
@@ -734,6 +789,7 @@ class DeploymentHandler(object):
             ignore_deploy_order=ignore_deploy_order,
             reverse_deploy_order=reverse_deploy_order,
             docker_image_count=docker_image_count,
+            standalone_deployment=standalone_deployment,
         )
 
         return gitlab_ci

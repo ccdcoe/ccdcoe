@@ -105,6 +105,14 @@ def pipeline_cmd(ctx):
     flag_value="",
     show_default=True,
 )
+@click.option(
+    "--standalone_deployment",
+    help="Execute the deployment in standalone mode",
+    default=False,
+    is_flag=False,
+    flag_value="",
+    show_default=True,
+)
 @click.pass_obj
 def config(
     deployment_handler: DeploymentHandler,
@@ -118,6 +126,7 @@ def config(
     ignore_deploy_order: bool = False,
     reverse_deploy_order: bool = False,
     docker_image_count: int = 1,
+    standalone_deployment: bool = False,
 ):
     if skip_hosts is not None:
         skip_hosts = skip_hosts.replace(" ", "").split(",")
@@ -140,6 +149,7 @@ def config(
         ignore_deploy_order=ignore_deploy_order,
         reverse_deploy_order=reverse_deploy_order,
         docker_image_count=docker_image_count,
+        standalone_deployment=standalone_deployment
     )
     if show:
         ConsoleOutput.print(gitlab_ci_data)
