@@ -325,9 +325,6 @@ class DeploymentHandler(object):
         results from pipelines that are updated the last 4 hours (default; can be controlled via the \
         'update_delta_in_hours' variable). If that yields more then 1 result; it will return the last entry.
         """
-
-        team_regex = re.compile(r"")
-
         self.logger.debug(
             f"Method '{inspect.currentframe().f_code.co_name}' called with arguments: {locals()}"
         )
