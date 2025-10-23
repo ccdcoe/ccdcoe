@@ -33,6 +33,26 @@ pipelines; if this is the only thing you would like to use from the package plea
 pip install ccdcoe[cli_code]
 ```
 
+After the installation run `ccdcoe` from the command line and have a look at the help section for the available
+commands.
+
+The settings for the cli are controlled from a `.env` file located at `~/.ccdcoe/.env` and has the following 
+defaults which are put there when you first run the application:
+
+```bash
+TRIGGER_TOKEN=<<MANDATORY_VALUE>>
+PAT_TOKEN=<<MANDATORY_VALUE>>
+GITLAB_URL=<<MANDATORY_VALUE>>
+NEXUS_HOST=<<MANDATORY_VALUE>>
+PROVIDENTIA_URL=<<MANDATORY_VALUE>>
+PROVIDENTIA_TOKEN=<<MANDATORY_VALUE>>
+PROJECT_ROOT=<<MANDATORY_VALUE>>
+PROJECT_VERSION=<<MANDATORY_VALUE>>
+```
+
+These settings are, like you can see, all mandatory. Consult `ccdcoe/deployments/deployment_config.py` for more, 
+optional, settings.
+
 The CLI application supports tab completion; for bash add `eval "$(_CCDCOE_COMPLETE=bash_source ccdcoe)"` to your 
 .bashrc to activate the tab completion. 
 Or you could save the output of the following command as a script somewhere 
@@ -41,6 +61,36 @@ Or you could save the output of the following command as a script somewhere
 
 Other shells (Zsh, Fish) are supported as well; please check the 
 [click documentation](https://click.palletsprojects.com/en/stable/shell-completion/)
+
+### Examples
+
+Example for BT28, deploying up to tier 7 on branch cicd-update:
+
+```bash
+ccdcoe deploy tier --level 7 -b cicd-update -t 28
+```
+
+Example for BT24, deploying just tier 4 on branch cicd-update:
+
+```python
+ccdcoe deploy tier --limit 4 -b cicd-update -t 24
+```
+
+You can exclude hosts from the pipeline deployment:
+
+```python
+ccdcoe deploy tier --limit 4 -t 24 --skip_hosts host1,host2,host3
+```
+
+^ Will deploy tier4 for BT24 **except** host1,host2,host3
+
+Or you can deploy only some selected hosts:
+
+```python
+ccdcoe deploy tier --limit 4 -t 24 --only_hosts host1,host2,host3
+```
+
+^ Will deploy **only** host1,host2,host3 from tier4 for BT24
 
 ## Adding modules and/or groups
 
