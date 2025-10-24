@@ -777,7 +777,8 @@ class DeploymentHandler(object):
             tier_assignments = self.get_tier_assignments_providentia()
         else:
             tier_assignments = {"Tier0a":[{x:{'actor': 'SA'}} for x in only_hosts]}
-            standalone_tiers = "TIER0"
+            standalone_tiers = ["TIER0"]
+            large_tiers = ["TIER0"]
 
         gitlab_ci = self.generate_gitlab_ci(
             data=tier_assignments,
