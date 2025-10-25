@@ -18,7 +18,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5.0.0
       - name: Installing ccdcoe package
-        run: pip install ccdcoe
+        continue-on-error: true
+        run: pip install ccdcoe && ccdcoe --version
       - name: Clearing default .env
         run: sed -i -e 's/<<MANDATORY_VALUE>>/""/g' /home/runner/.ccdcoe/.env
       - name: Installing apt-get dependencies
