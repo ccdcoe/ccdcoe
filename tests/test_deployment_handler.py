@@ -8,7 +8,7 @@ import pytest
 from gitlab import Gitlab
 from gitlab.v4.objects import Project
 
-from ccdcoe.deployments.deployment_config import Config
+import ccdcoe
 from ccdcoe.deployments.generic.constants import gitlab_boolean
 from ccdcoe.deployments.objects.pipeline_vars import PipelineVars
 from ccdcoe.deployments.objects.tiers import Tier1, FullTier2
@@ -35,7 +35,7 @@ class FakeProjectPipeline:
     ref: str = "fake_pipeline_ref"
 
 
-class FakeConfig(Config):
+class FakeConfig(ccdcoe.deployments.deployment_config.Config):
     TRIGGER_TOKEN = "test_trigger_token"
     PAT_TOKEN = "test_pat_token"
     GITLAB_URL = "http://localhost:5001"
