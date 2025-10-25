@@ -10,7 +10,10 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    working-directory: /home/runner/work/ccdcoe
+    defaults:
+      run:
+        shell: bash
+        working-directory: /home/runner/work/ccdcoe
     strategy:
       matrix:
         python-version: ['3.10', '3.11', '3.12']
