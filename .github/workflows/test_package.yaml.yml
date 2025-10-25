@@ -8,9 +8,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      NON_PACKAGE_MODE: True
-      TRIGGER_TOKEN: ""
     steps:
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
