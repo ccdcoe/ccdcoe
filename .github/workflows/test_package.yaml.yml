@@ -21,7 +21,5 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y python3-dev libldap2-dev libsasl2-dev libssl-dev
       - name: Install Dependencies
         run: poetry install --no-interaction --no-root && poetry install --only tests --no-interaction --no-root
-      - name: Clearing default .env
-        run: sed -i -e 's/<<MANDATORY_VALUE>>/""/g' /home/runner/.ccdcoe/.env
       - name: Run Tests with Pytest
         run: poetry run tox
