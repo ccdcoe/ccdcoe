@@ -10,10 +10,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash
-        working-directory: /home/runner/work/ccdcoe
     strategy:
       matrix:
         python-version: ['3.10', '3.11', '3.12']
@@ -24,6 +20,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install Poetry
         run: pip install poetry
+      - name: Checkout code
+        uses: actions/checkout@v5.0.0
       - name: Install Dependencies
         run: poetry install --no-interaction --no-root && poetry install --only tests --no-interaction --no-root
       - name: Run Tests with Pytest
@@ -34,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4.1.1
+        uses: actions/checkout@v5.0.0
         with:
           fetch-depth: 0
       - name: Commits to file
@@ -57,7 +55,8 @@ jobs:
     needs: release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4.1.1
+      - name: Checkout code
+        uses: actions/checkout@v5.0.0
       - name: Set up Python
         uses: actions/setup-python@v5.0.0
         with:
