@@ -8,6 +8,22 @@ on:
       - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.10, 3.11, 3.12]
+    steps:
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install Poetry
+        run: pip install poetry
+      - name: Install Dependencies
+        run: poetry install --no-interaction --no-root && poetry install --only tests --no-interaction --no-root
+      - name: Run Tests with Pytest
+        run: poetry run pytest --verbose
   release:
     permissions: write-all
     name: Create Release
@@ -57,6 +73,7 @@ jobs:
   pypi-publish:
     runs-on: ubuntu-latest
     needs:
+      - test
       - build
     permissions:
       id-token: write
