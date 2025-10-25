@@ -51,7 +51,7 @@ PROJECT_VERSION=<<MANDATORY_VALUE>>
 ```
 
 These settings are, like you can see, all mandatory. Consult `ccdcoe/deployments/deployment_config.py` for more, 
-optional, settings.
+optional, settings. 
 
 The CLI application supports tab completion; for bash add `eval "$(_CCDCOE_COMPLETE=bash_source ccdcoe)"` to your 
 .bashrc to activate the tab completion. 
