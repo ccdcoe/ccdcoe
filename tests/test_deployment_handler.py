@@ -137,12 +137,17 @@ class TestDeploymentHandler:
 
         new_gitlab_ci = dh.get_gitlab_ci_from_tier_assignment(ignore_deploy_order=True)
         assert "needs" not in new_gitlab_ci["tier3b"]
+        assert "CoreTiers" not in new_gitlab_ci["stages"] 
 
         new_gitlab_ci = dh.get_gitlab_ci_from_tier_assignment(
             only_hosts=["test2"], standalone_deployment=True
         )
         assert new_gitlab_ci["stages"] == ["Tier0"]
         assert "test2" in new_gitlab_ci["tier0a"]["parallel"]["matrix"][0]["HOST"]
+
+        new_gitlab_ci = dh.get_gitlab_ci_from_tier_assignment(core_level=2)
+        assert new_gitlab_ci["stages"][0] == "CoreTiers"
+        assert new_gitlab_ci["stages"][1] == "Tier3"
 
         # testing fetching tiers
         assert isinstance(dh.get_tier(1), Tier1)

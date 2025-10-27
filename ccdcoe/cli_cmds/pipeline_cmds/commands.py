@@ -113,6 +113,14 @@ def pipeline_cmd(ctx):
     flag_value="",
     show_default=True,
 )
+@click.option(
+    "--core_level",
+    help="Set this tier level (and all tiers below) as core tiers",
+    default=0,
+    is_flag=False,
+    flag_value="",
+    show_default=True,
+)
 @click.pass_obj
 def config(
     deployment_handler: DeploymentHandler,
@@ -127,6 +135,7 @@ def config(
     reverse_deploy_order: bool = False,
     docker_image_count: int = 1,
     standalone_deployment: bool = False,
+    core_level: int = 0,
 ):
     if skip_hosts is not None:
         skip_hosts = skip_hosts.replace(" ", "").split(",")
@@ -149,7 +158,8 @@ def config(
         ignore_deploy_order=ignore_deploy_order,
         reverse_deploy_order=reverse_deploy_order,
         docker_image_count=docker_image_count,
-        standalone_deployment=standalone_deployment
+        standalone_deployment=standalone_deployment,
+        core_level=core_level,
     )
     if show:
         ConsoleOutput.print(gitlab_ci_data)

@@ -76,7 +76,9 @@ team_regex = re.compile(r"Team (\d+)")
 class PipelineFilter:
     pipelines: list[ProjectPipeline]
 
-    def filter_pipelines(self, team_number: int) -> list[ProjectPipeline]:  # pragma: no cover
+    def filter_pipelines(
+        self, team_number: int
+    ) -> list[ProjectPipeline]:  # pragma: no cover
         filtered_pipelines = []
         for pipeline in self.pipelines:
             m = team_regex.search(pipeline.name)
@@ -231,6 +233,7 @@ class DeploymentHandler(object):
         reverse_deploy_order: bool = False,
         docker_image_count: int = 1,
         nova_version: str = "PRODUCTION",
+        core_level: int = 0,
     ) -> ProjectPipeline:
 
         self.logger.debug(
@@ -278,6 +281,7 @@ class DeploymentHandler(object):
             tier_data["REVERSE_DEPLOY_ORDER"] = reverse_deploy_order
             tier_data["DOCKER_IMAGE_COUNT"] = docker_image_count
             tier_data["NOVA_VERSION"] = nova_version
+            tier_data["CORE_LEVEL"] = core_level
 
             if only_hosts:
                 description = (
@@ -563,6 +567,7 @@ class DeploymentHandler(object):
         reverse_deploy_order: bool = False,
         docker_image_count: int = 1,
         standalone_deployment: bool = False,
+        core_level: int = 0,
     ) -> dict[str, list]:
         if skip_hosts is not None and only_hosts is not None:
             if any(skip_hosts) and any(only_hosts):
@@ -596,11 +601,25 @@ class DeploymentHandler(object):
         # Sort numerically based on the number in "TierX"
         top_level_tiers.sort(key=lambda x: int(re.search(r"\d+", x).group()))
 
-        if reverse_deploy_order:
-            top_level_tiers.reverse()
+        stages = []
+        if core_level > 0:
+            non_core_tiers = [
+                tier
+                for tier in top_level_tiers
+                if int(re.sub(r"\D", "", tier)) > core_level
+            ]
+            if reverse_deploy_order:
+                non_core_tiers.reverse()
+                stages = non_core_tiers + ["CoreTiers"]
+            else:
+                stages = ["CoreTiers"] + non_core_tiers
+        else:
+            stages = top_level_tiers
+            if reverse_deploy_order:
+                stages.reverse()
 
         # Prepare GitLab CI/CD pipeline structure
-        gitlab_ci = {"stages": top_level_tiers}
+        gitlab_ci = {"stages": stages}
 
         jobs = {}
 
@@ -609,6 +628,7 @@ class DeploymentHandler(object):
             # nova_version = getenv_str("NOVA_VERSION", "PRODUCTION")
             job_name = f"{tier.lower()}"
             top_level_tier = re.sub(r"[a-zA-Z]$", "", tier)
+            top_level_tier_number = int(re.sub(r"\D", "", top_level_tier))
 
             deploy_rule = [
                 {
@@ -698,8 +718,12 @@ class DeploymentHandler(object):
             else:
                 docker_image = self.config.EXECUTOR_DOCKER_IMAGE
 
+            job_stage = (
+                top_level_tier if core_level == 0 or top_level_tier_number > core_level else "CoreTiers"
+            )
+
             jobs[job_name] = {
-                "stage": top_level_tier,
+                "stage": job_stage,
                 "image": docker_image,
                 "tags": [job_tag],
                 "before_script": [
@@ -728,22 +752,36 @@ class DeploymentHandler(object):
             if ignore_deploy_order:
                 continue
             else:
-                # For normal order, add dependency to previous job
                 if not reverse_deploy_order and i > 0:
                     my_job_index = list(jobs.keys()).index(job_name)
-                    # if top_level_tier.upper() not in exclude_tier_list:
-                    jobs[job_name]["needs"] = [
-                        {
-                            "job": (
-                                "dummy_job"
-                                if my_job_index == 0
-                                else list(jobs.keys())[my_job_index - 1]
-                            ),
-                            "optional": True,
-                        }
-                    ]
+                    previous_job = list(jobs.keys())[my_job_index - 1]
 
-        # Handle reverse deploy order dependencies after all jobs are created
+                    current_job_is_core = job_stage == "CoreTiers"
+                    previous_job_is_core = jobs[previous_job]["stage"] == "CoreTiers"
+
+                    if (current_job_is_core and previous_job_is_core) or (
+                        not current_job_is_core and previous_job_is_core
+                    ):
+                        jobs[job_name]["needs"] = [
+                            {
+                                "job": (
+                                    "dummy_job" if my_job_index == 0 else previous_job
+                                ),
+                                "optional": True,
+                            }
+                        ]
+                    elif (
+                        not current_job_is_core
+                        and not previous_job_is_core
+                        and job_stage == jobs[previous_job]["stage"]
+                    ):
+                        jobs[job_name]["needs"] = [
+                            {
+                                "job": previous_job,
+                                "optional": True,
+                            }
+                        ]
+
         if not ignore_deploy_order and reverse_deploy_order:
             job_keys = list(jobs.keys())
             for idx, job_key in enumerate(job_keys):
@@ -754,6 +792,28 @@ class DeploymentHandler(object):
                             "optional": True,
                         }
                     ]
+
+        if not ignore_deploy_order and not reverse_deploy_order and core_level > 0:
+            last_core_job = None
+            for job_name, job_config in jobs.items():
+                if job_config["stage"] == "CoreTiers":
+                    last_core_job = job_name
+
+            if last_core_job:
+                non_core_stages_first_jobs = {}
+                for job_name, job_config in jobs.items():
+                    stage = job_config["stage"]
+                    if stage != "CoreTiers" and stage not in non_core_stages_first_jobs:
+                        non_core_stages_first_jobs[stage] = job_name
+
+                for stage, first_job in non_core_stages_first_jobs.items():
+                    if "needs" not in jobs[first_job]:
+                        jobs[first_job]["needs"] = [
+                            {
+                                "job": last_core_job,
+                                "optional": True,
+                            }
+                        ]
 
         # Merge jobs into GitLab CI structure
         gitlab_ci.update(jobs)
@@ -771,12 +831,13 @@ class DeploymentHandler(object):
         reverse_deploy_order: bool = False,
         docker_image_count: int = 1,
         standalone_deployment: bool = False,
+        core_level: int = 0,
     ) -> dict[str, List[Any]]:
 
         if not standalone_deployment:
             tier_assignments = self.get_tier_assignments_providentia()
         else:
-            tier_assignments = {"Tier0a":[{x:{'actor': 'SA'}} for x in only_hosts]}
+            tier_assignments = {"Tier0a": [{x: {"actor": "SA"}} for x in only_hosts]}
             standalone_tiers = ["TIER0"]
             large_tiers = ["TIER0"]
 
@@ -791,6 +852,7 @@ class DeploymentHandler(object):
             reverse_deploy_order=reverse_deploy_order,
             docker_image_count=docker_image_count,
             standalone_deployment=standalone_deployment,
+            core_level=core_level,
         )
 
         return gitlab_ci
