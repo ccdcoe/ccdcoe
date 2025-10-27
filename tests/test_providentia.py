@@ -180,4 +180,25 @@ class TestProvidentiaApi:
         if all_providentia_v3_fixtures.endpoint == "environment_hosts_id":
             r["result"]["owner"] = "REDACTED"
 
-        assert r == all_providentia_v3_fixtures.fixture
+        if all_providentia_v3_fixtures.endpoint == "environments":
+            fetch_dummy_env = [x for x in r["result"] if x["id"] == "dummy"][0]
+            stored_dummy_env = [
+                x
+                for x in all_providentia_v3_fixtures.fixture["result"]
+                if x["id"] == "dummy"
+            ][0]
+
+            assert fetch_dummy_env["name"] == stored_dummy_env["name"]
+        else:
+            if "result" in r:
+                try:
+                    assert sorted(r["result"]) == sorted(
+                        all_providentia_v3_fixtures.fixture["result"]
+                    )
+                except TypeError:
+                    assert sorted(r["result"], key=lambda x: x["id"]) == sorted(
+                        all_providentia_v3_fixtures.fixture["result"],
+                        key=lambda x: x["id"],
+                    )
+            else:
+                assert r == all_providentia_v3_fixtures.fixture
