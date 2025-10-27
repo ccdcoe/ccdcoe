@@ -158,6 +158,8 @@ class DeploymentHandler(object):
             )
             variables_dict = {k: str(v) for k, v in variables.as_dict().items()}
 
+            variables_dict["CI_CONFIG_PATH"] = getenv_str("CI_CONFIG_PATH", ".gitlab-ci.yml")  
+
             return pipeline_project.trigger_pipeline(
                 ref=reference,
                 token=self.config.TRIGGER_TOKEN,

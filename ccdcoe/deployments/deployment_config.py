@@ -49,6 +49,9 @@ class Config(object):
     PROJECT_NAMESPACE: str = getenv_str(
         "PROJECT_NAMESPACE", f"{PROJECT_ROOT}/{PROJECT_VERSION}"
     )
+    CI_CONFIG_PATH: str = getenv_str(
+        "CI_CONFIG_PATH", ".gitlab-ci.yml"
+    )
     NEXUS_HOST: str = getenv_str(
         "NEXUS_HOST", __MANDATORY_VALUE__, True, config_file_location
     )
