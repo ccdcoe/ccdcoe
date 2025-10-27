@@ -719,7 +719,7 @@ class DeploymentHandler(object):
                 docker_image = self.config.EXECUTOR_DOCKER_IMAGE
 
             job_stage = (
-                top_level_tier if top_level_tier_number > core_level else "CoreTiers"
+                top_level_tier if core_level == 0 or top_level_tier_number > core_level else "CoreTiers"
             )
 
             jobs[job_name] = {
