@@ -3,7 +3,6 @@ name: Upload Python Package
 
 on:
   push:
-    branches: [main]
     # Sequence of patterns matched against refs/tags
     tags:
       - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
@@ -14,6 +13,7 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
+    if: github.ref == 'refs/heads/main'
     steps:
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -40,6 +40,7 @@ jobs:
     permissions: write-all
     name: Create Release
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
     steps:
       - name: Checkout code
         uses: actions/checkout@v5.0.0
@@ -65,6 +66,7 @@ jobs:
     needs:
       - release
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
     steps:
       - name: Checkout code
         uses: actions/checkout@v5.0.0
@@ -91,6 +93,7 @@ jobs:
       - build
     permissions:
       id-token: write
+    if: github.ref == 'refs/heads/main'
     steps:
       - name: Retrieve release distributions
         uses: actions/download-artifact@v4
