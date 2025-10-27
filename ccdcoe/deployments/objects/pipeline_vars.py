@@ -42,6 +42,7 @@ class PipelineVars(Validations):
     REVERSE_DEPLOY_ORDER: str = gitlab_boolean.DISABLED
     DOCKER_IMAGE_COUNT: int = 1
     NOVA_VERSION: str = "PRODUCTION"
+    CORE_LEVEL: int = 0
 
     def as_dict(self) -> dict[str, Any]:
         # noinspection PyUnresolvedReferences
@@ -172,6 +173,14 @@ class PipelineVars(Validations):
         else:
             return ValueError(
                 f"NOVA_VERSION must be a string. NOT of type: {type(value)}"
+            )
+
+    def validate_CORE_LEVEL(self, value: int, **_) -> int:
+        if isinstance(self.CORE_LEVEL, int):
+            return value
+        else:
+            return ValueError(
+                f"CORE_LEVEL must be an integer. NOT of type: {type(value)}"
             )
 
     @staticmethod
