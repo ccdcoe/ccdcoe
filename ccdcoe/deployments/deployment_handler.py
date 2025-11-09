@@ -570,6 +570,7 @@ class DeploymentHandler(object):
         docker_image_count: int = 1,
         standalone_deployment: bool = False,
         core_level: int = 0,
+        nova_version: str = "PRODUCTION",
     ) -> dict[str, list]:
         if skip_hosts is not None and only_hosts is not None:
             if any(skip_hosts) and any(only_hosts):
@@ -627,7 +628,6 @@ class DeploymentHandler(object):
 
         for i, tier in enumerate(tiers):
             mode = getenv_str("DEPLOY_MODE", deploy_modes.REDEPLOY)
-            # nova_version = getenv_str("NOVA_VERSION", "PRODUCTION")
             job_name = f"{tier.lower()}"
             top_level_tier = re.sub(r"[a-zA-Z]$", "", tier)
             top_level_tier_number = int(re.sub(r"\D", "", top_level_tier))
@@ -716,7 +716,7 @@ class DeploymentHandler(object):
 
             if docker_image_count >= 1:
                 random_image_number = random.randint(1, docker_image_count)
-                docker_image = f"{self.config.NEXUS_HOST}/{self.config.PROJECT_VERSION}-cicd-image-{random_image_number}:latest"
+                docker_image = f"{self.config.NEXUS_HOST}/{self.config.PROJECT_VERSION}-cicd-image-{random_image_number}-{nova_version.lower()}:latest"
             else:
                 docker_image = self.config.EXECUTOR_DOCKER_IMAGE
 
@@ -834,6 +834,7 @@ class DeploymentHandler(object):
         docker_image_count: int = 1,
         standalone_deployment: bool = False,
         core_level: int = 0,
+        nova_version: str = "PRODUCTION",
     ) -> dict[str, List[Any]]:
 
         if not standalone_deployment:
@@ -855,6 +856,7 @@ class DeploymentHandler(object):
             docker_image_count=docker_image_count,
             standalone_deployment=standalone_deployment,
             core_level=core_level,
+            nova_version=nova_version,
         )
 
         return gitlab_ci

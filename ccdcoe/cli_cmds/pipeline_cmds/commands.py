@@ -121,6 +121,13 @@ def pipeline_cmd(ctx):
     flag_value="",
     show_default=True,
 )
+@click.option(
+    "--nova_version",
+    type=click.Choice(["PRODUCTION", "STAGING"], case_sensitive=False),
+    default="PRODUCTION",
+    show_default=True,
+    help="Choose nova.core version",
+)
 @click.pass_obj
 def config(
     deployment_handler: DeploymentHandler,
@@ -136,6 +143,7 @@ def config(
     docker_image_count: int = 1,
     standalone_deployment: bool = False,
     core_level: int = 0,
+    nova_version: str = "PRODUCTION",
 ):
     if skip_hosts is not None:
         skip_hosts = skip_hosts.replace(" ", "").split(",")
@@ -160,6 +168,7 @@ def config(
         docker_image_count=docker_image_count,
         standalone_deployment=standalone_deployment,
         core_level=core_level,
+        nova_version=nova_version,
     )
     if show:
         ConsoleOutput.print(gitlab_ci_data)
