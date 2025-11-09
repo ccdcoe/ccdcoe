@@ -158,7 +158,9 @@ class DeploymentHandler(object):
             )
             variables_dict = {k: str(v) for k, v in variables.as_dict().items()}
 
-            variables_dict["CI_CONFIG_PATH"] = getenv_str("CI_CONFIG_PATH", ".gitlab-ci.yml")  
+            variables_dict["CI_CONFIG_PATH"] = getenv_str(
+                "CI_CONFIG_PATH", ".gitlab-ci.yml"
+            )
 
             return pipeline_project.trigger_pipeline(
                 ref=reference,
@@ -285,28 +287,41 @@ class DeploymentHandler(object):
             tier_data["NOVA_VERSION"] = nova_version
             tier_data["CORE_LEVEL"] = core_level
 
-            if only_hosts:
-                description = (
-                    f"LIMITED to hosts: {only_hosts}, skip_vulns: {skip_vulns}"
-                )
-            else:
-                if deploy_full_tier:
-                    if start_tier_level == 0:
-                        description = f"FULL up to Tier {tier_level}, skip_vulns: {skip_vulns}, skip_hosts: {skip_hosts}"
-                    else:
-                        description = f"FULL from Tier {start_tier_level} to {tier_level}, skip_vulns: {skip_vulns}, skip_hosts: {skip_hosts}"
+            description = f"{deploy_mode.upper()} Team {team_number} - "
+
+            if deploy_full_tier:
+                if start_tier_level == 0:
+                    description += f"FULL up to Tier {tier_level} - "
                 else:
-                    description = f"LIMITED to Tier {tier_level}, skip_vulns: {skip_vulns}, skip_hosts: {skip_hosts}"
+                    description += (
+                        f"FULL from Tier {start_tier_level} to {tier_level} - "
+                    )
+            else:
+                description += f"LIMITED to Tier {tier_level} - "
+
+            if skip_vulns:
+                description += f"SKIP_VULNS - "
+
+            if only_hosts:
+                description += f"LIMITED to hosts: {only_hosts} - "
+
+            if skip_hosts:
+                description += f"SKIP hosts: {skip_hosts} - "
 
             if actor:
-                description += f", actor: {actor}"
+                description += f"ACTOR: {actor} - "
+
+            if nova_version == "STAGING":
+                description += f"NOVA_VERSION: STAGING - "
 
             if len(description) >= 255:
                 description = (
                     description[:220] + "-TRUNCATED"
-                )  # accounting for 'redeploy Team xx as well'
+                )  # accounting for 'deploy_mode Team xx' as well
 
             tier_data["DEPLOY_DESCRIPTION"] = description
+
+            self.logger.warning(f"{description}")
 
             project_pipeline = self.custom_deployment(
                 reference=reference, variables=tier_data
@@ -345,15 +360,18 @@ class DeploymentHandler(object):
             tier_data["ONLY_HOSTS"] = only_hosts
             tier_data["STANDALONE_DEPLOYMENT"] = gitlab_boolean.ENABLED
 
+            description = f"{deploy_mode.upper()} Standalone - "
+
+            if skip_vulns:
+                description += f"SKIP_VULNS - "
+
             if only_hosts:
-                description = (
-                    f"LIMITED to hosts: {only_hosts}, skip_vulns: {skip_vulns}"
-                )
+                description += f"LIMITED to hosts: {only_hosts} - "
 
             if len(description) >= 255:
                 description = (
                     description[:220] + "-TRUNCATED"
-                )  # accounting for 'redeploy Team xx as well'
+                )  # accounting for 'deploy_mode Team xx' as well
 
             tier_data["DEPLOY_DESCRIPTION"] = description
 
@@ -721,7 +739,9 @@ class DeploymentHandler(object):
                 docker_image = self.config.EXECUTOR_DOCKER_IMAGE
 
             job_stage = (
-                top_level_tier if core_level == 0 or top_level_tier_number > core_level else "CoreTiers"
+                top_level_tier
+                if core_level == 0 or top_level_tier_number > core_level
+                else "CoreTiers"
             )
 
             jobs[job_name] = {
