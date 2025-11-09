@@ -145,6 +145,12 @@ def config(
     core_level: int = 0,
     nova_version: str = "PRODUCTION",
 ):
+    if ignore_deploy_order and reverse_deploy_order:
+        deployment_handler.logger.error(
+            "Cannot set both --ignore_deploy_order and --reverse_deploy_order at the same time"
+        )
+        return False
+    
     if skip_hosts is not None:
         skip_hosts = skip_hosts.replace(" ", "").split(",")
     if only_hosts is not None:
