@@ -199,19 +199,19 @@ class TestDeploymentHandler:
                 {},
                 PipelineVars(
                     REDEPLOY_TIER0=gitlab_boolean.ENABLED,
-                    DEPLOY_DESCRIPTION="LIMITED to Tier 0, skip_vulns: False, skip_hosts: ",
+                    DEPLOY_DESCRIPTION="REDEPLOY Team 28 - LIMITED to Tier 0 - ",
                 ),
-                "Project pipeline for team 28(LIMITED to Tier 0, skip_vulns: False, skip_hosts: ) deployed -> pipeline id fake_pipeline_id status: fake_pipeline_status ref: fake_pipeline_ref",
+                "Project pipeline for team 28(REDEPLOY Team 28 - LIMITED to Tier 0 - ) deployed -> pipeline id fake_pipeline_id status: fake_pipeline_status ref: fake_pipeline_ref",
             ),
             pytest.param(
                 {"team_number": 26, "tier_level": 4, "only_hosts": "web-target-1"},
                 PipelineVars(
                     CICD_TEAM="26",
                     REDEPLOY_TIER4=gitlab_boolean.ENABLED,
-                    DEPLOY_DESCRIPTION="LIMITED to hosts: web-target-1, skip_vulns: False",
+                    DEPLOY_DESCRIPTION="REDEPLOY Team 26 - LIMITED to Tier 4 - LIMITED to hosts: web-target-1 - ",
                     ONLY_HOSTS="web-target-1",
                 ),
-                "Project pipeline for team 26(LIMITED to hosts: web-target-1, skip_vulns: False) deployed -> "
+                "Project pipeline for team 26(REDEPLOY Team 26 - LIMITED to Tier 4 - LIMITED to hosts: web-target-1 - ) deployed -> "
                 "pipeline id fake_pipeline_id status: fake_pipeline_status ref: fake_pipeline_ref",
             ),
             pytest.param(
@@ -222,9 +222,9 @@ class TestDeploymentHandler:
                     REDEPLOY_TIER6=gitlab_boolean.ENABLED,
                     REDEPLOY_TIER7=gitlab_boolean.ENABLED,
                     REDEPLOY_TIER8=gitlab_boolean.ENABLED,
-                    DEPLOY_DESCRIPTION="FULL from Tier 4 to 8, skip_vulns: False, skip_hosts: ",
+                    DEPLOY_DESCRIPTION="REDEPLOY Team 28 - FULL from Tier 4 to 8 - ",
                 ),
-                "Project pipeline for team 28(FULL from Tier 4 to 8, skip_vulns: False, skip_hosts: ) deployed -> "
+                "Project pipeline for team 28(REDEPLOY Team 28 - FULL from Tier 4 to 8 - ) deployed -> "
                 "pipeline id fake_pipeline_id status: fake_pipeline_status ref: fake_pipeline_ref",
             ),
             pytest.param(
@@ -240,9 +240,9 @@ class TestDeploymentHandler:
                     REDEPLOY_TIER7=gitlab_boolean.ENABLED,
                     REDEPLOY_TIER8=gitlab_boolean.ENABLED,
                     ACTOR="grp1",
-                    DEPLOY_DESCRIPTION="FULL up to Tier 8, skip_vulns: False, skip_hosts: , actor: grp1",
+                    DEPLOY_DESCRIPTION="REDEPLOY Team 28 - FULL up to Tier 8 - ACTOR: grp1 - ",
                 ),
-                "Project pipeline for team 28(FULL up to Tier 8, skip_vulns: False, skip_hosts: , actor: grp1) "
+                "Project pipeline for team 28(REDEPLOY Team 28 - FULL up to Tier 8 - ACTOR: grp1 - ) "
                 "deployed -> pipeline id fake_pipeline_id status: fake_pipeline_status ref: fake_pipeline_ref",
             ),
             pytest.param(
@@ -254,14 +254,25 @@ class TestDeploymentHandler:
                 PipelineVars(
                     CICD_TEAM="26",
                     REDEPLOY_TIER4=gitlab_boolean.ENABLED,
-                    DEPLOY_DESCRIPTION="LIMITED to Tier 4, skip_vulns: False, skip_hosts: web-target-1, "
-                    "web-target-2, wowthisisahostwithaverylongnameforsomereasonicannotunderstand, "
-                    "wowthisisahostwithaverylongnameforsomereasonicannotunderstand2, wowthisisahostw-TRUNCATED",
+                    DEPLOY_DESCRIPTION="REDEPLOY Team 26 - LIMITED to Tier 4 - SKIP hosts: web-target-1, web-target-2, wowthisisahostwithaverylongnameforsomereasonicannotunderstand, wowthisisahostwithaverylongnameforsomereasonicannotunderstand2, wowthisisahost-TRUNCATED",
                     SKIP_HOSTS="web-target-1, web-target-2, wowthisisahostwithaverylongnameforsomereasonicannotunderstand, wowthisisahostwithaverylongnameforsomereasonicannotunderstand2, wowthisisahostwithaverylongnameforsomereasonicannotunderstand3",
                 ),
-                "Project pipeline for team 26(LIMITED to Tier 4, skip_vulns: False, skip_hosts: web-target-1, "
-                "web-target-2, wowthisisahostwithaverylongnameforsomereasonicannotunderstand, "
-                "wowthisisahostwithaverylongnameforsomereasonicannotunderstand2, wowthisisahostw-TRUNCATED) "
+                "Project pipeline for team 26(REDEPLOY Team 26 - LIMITED to Tier 4 - SKIP hosts: web-target-1, web-target-2, wowthisisahostwithaverylongnameforsomereasonicannotunderstand, wowthisisahostwithaverylongnameforsomereasonicannotunderstand2, wowthisisahost-TRUNCATED) "
+                "deployed -> pipeline id fake_pipeline_id status: fake_pipeline_status ref: fake_pipeline_ref",
+            ),
+            pytest.param(
+                {
+                    "team_number": 26,
+                    "tier_level": 4,
+                    "skip_vulns": True,
+                },
+                PipelineVars(
+                    CICD_TEAM="26",
+                    REDEPLOY_TIER4=gitlab_boolean.ENABLED,
+                    SKIP_VULNS=gitlab_boolean.ENABLED,
+                    DEPLOY_DESCRIPTION="REDEPLOY Team 26 - LIMITED to Tier 4 - SKIP_VULNS - ",
+                ),
+                "Project pipeline for team 26(REDEPLOY Team 26 - LIMITED to Tier 4 - SKIP_VULNS - ) "
                 "deployed -> pipeline id fake_pipeline_id status: fake_pipeline_status ref: fake_pipeline_ref",
             ),
         ],
@@ -314,11 +325,11 @@ class TestDeploymentHandler:
                 PipelineVars(
                     CICD_TEAM="SA",
                     REDEPLOY_TIER0=gitlab_boolean.ENABLED,
-                    DEPLOY_DESCRIPTION="LIMITED to hosts: web-target-1, skip_vulns: False",
+                    DEPLOY_DESCRIPTION="REDEPLOY Standalone - LIMITED to hosts: web-target-1 - ",
                     ONLY_HOSTS="web-target-1",
                     STANDALONE_DEPLOYMENT=gitlab_boolean.ENABLED,
                 ),
-                "Project pipeline for standalone deployment(LIMITED to hosts: web-target-1, skip_vulns: False) deployed -> "
+                "Project pipeline for standalone deployment(REDEPLOY Standalone - LIMITED to hosts: web-target-1 - ) deployed -> "
                 "pipeline id fake_pipeline_id status: fake_pipeline_status ref: fake_pipeline_ref",
             ),
         ],
