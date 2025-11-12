@@ -304,9 +304,17 @@ class TestDeploymentHandler:
         ) as mocked_function:
             mock_deployment.return_value = FakeProjectPipeline()
 
-            data = dh.deploy_team(**deploy_data)
+            with catch_logs(level=logging.INFO, logger=dh.logger) as handler:
+                data = dh.deploy_team(**deploy_data)
 
-            assert data == deploy_msg
+                assert data is not None
+                assert isinstance(data, FakeProjectPipeline)
+                
+                logged_messages = [record.message for record in handler.records]
+
+                assert any(deploy_msg in message for message in logged_messages), \
+                    f"Expected message '{deploy_msg}' not found in logs: {logged_messages}"
+                
             mocked_function.assert_called_once_with(
                 reference="main", variables=mock_pipeline_vars
             )
