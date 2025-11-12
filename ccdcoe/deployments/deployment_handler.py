@@ -321,16 +321,15 @@ class DeploymentHandler(object):
 
             tier_data["DEPLOY_DESCRIPTION"] = description
 
-            self.logger.warning(f"{description}")
-
             project_pipeline = self.custom_deployment(
                 reference=reference, variables=tier_data
             )
             if project_pipeline is not None:
-                return (
+                self.logger.info(
                     f"Project pipeline for team {team_number}({description}) deployed -> "
                     f"pipeline id {project_pipeline.id} status: {project_pipeline.status} ref: {project_pipeline.ref}"
                 )
+                return project_pipeline
         except Exception as e:
             self.logger.error(f"Uncaught exception -> {e}")
 
@@ -424,6 +423,31 @@ class DeploymentHandler(object):
             return pf.filter_pipelines_return_details(team_number=team_number)
         else:
             return pipelines[0]
+
+    def get_pipeline_by_id(
+        self,
+        pipeline_id: int,
+    ) -> ProjectPipeline | None:  # pragma: no cover
+
+        self.logger.debug(
+            f"Method '{inspect.currentframe().f_code.co_name}' called with arguments: {locals()}"
+        )
+
+        try:
+            the_project = self.get_project_by_namespace(self.config.PROJECT_NAMESPACE)
+
+            pipeline = the_project.pipelines.get(
+                pipeline_id,
+            )
+
+            self.logger.info(f"Fetched pipeline with id {pipeline_id}: {pipeline}")
+            return pipeline
+
+        except gitlab.exceptions.GitlabGetError as e:
+            self.logger.error(
+                f"Pipeline with id {pipeline_id} could not be fetched -> {e}"
+            )
+            return None
 
     def get_deployment_status(
         self,
