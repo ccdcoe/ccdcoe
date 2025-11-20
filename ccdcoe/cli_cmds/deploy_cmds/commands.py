@@ -600,8 +600,19 @@ def standalone(
     "and all teams (controlled by the range between the DEPLOYMENT_RANGE_LOWER and the DEPLOYMENT_RANGE_UPPER "
     "variables) are queried.",
 )
+@click.option(
+    "-i",
+    "--id",
+    help="The ID number of the pipeline you wish to see the status of.",
+)
 @click.pass_obj
-def status(deployment_handler: DeploymentHandler, branch: str, team: str, all: bool):
+def status(
+    deployment_handler: DeploymentHandler,
+    branch: str,
+    team: str,
+    all: bool,
+    id: str = None,
+):
 
     deployment_handler.logger.info(f"Looking for deployments on branch: {branch}...")
 
@@ -614,10 +625,19 @@ def status(deployment_handler: DeploymentHandler, branch: str, team: str, all: b
             tabulate(entry_list, headers=header_list, tablefmt="fancy_grid")
         )
     else:
-        deployment_handler.logger.info(f"Getting status team range: {team}...")
-        header_list, entry_list = deployment_handler.get_deployment_status(
-            reference=branch, team_number=parse_team_number(team)
-        )
-        ConsoleOutput.print(
-            tabulate(entry_list, headers=header_list, tablefmt="fancy_grid")
-        )
+        if id is None:
+            deployment_handler.logger.info(f"Getting status team range: {team}...")
+            header_list, entry_list = deployment_handler.get_deployment_status(
+                reference=branch, team_number=parse_team_number(team)
+            )
+            ConsoleOutput.print(
+                tabulate(entry_list, headers=header_list, tablefmt="fancy_grid")
+            )
+        else:
+            deployment_handler.logger.info(f"Getting status pipeline id: {id}...")
+            header_list, entry_list = deployment_handler.get_deployment_status(
+                reference=branch, pipeline_id=id
+            )
+            ConsoleOutput.print(
+                tabulate(entry_list, headers=header_list, tablefmt="fancy_grid")
+            )

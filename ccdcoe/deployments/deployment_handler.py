@@ -426,7 +426,7 @@ class DeploymentHandler(object):
 
     def get_pipeline_by_id(
         self,
-        pipeline_id: int,
+        pipeline_id: int | str,
     ) -> ProjectPipeline | None:  # pragma: no cover
 
         self.logger.debug(
@@ -436,9 +436,7 @@ class DeploymentHandler(object):
         try:
             the_project = self.get_project_by_namespace(self.config.PROJECT_NAMESPACE)
 
-            pipeline = the_project.pipelines.get(
-                pipeline_id,
-            )
+            pipeline = the_project.pipelines.get(pipeline_id)
 
             self.logger.info(f"Fetched pipeline with id {pipeline_id}: {pipeline}")
             return pipeline
@@ -454,6 +452,7 @@ class DeploymentHandler(object):
         reference: str = "main",
         team_number: int | List[int] = 28,
         fetch_all: bool = False,
+        pipeline_id: int | str = None,
     ) -> Tuple[List[str], List[str]]:  # pragma: no cover
 
         self.logger.debug(
@@ -476,29 +475,42 @@ class DeploymentHandler(object):
                 if details_obj is not None:
                     entry_list.extend([x.get_entry_list() for x in details_obj])
         else:
-            if isinstance(team_number, int):
-                team_number = [team_number]
-            if len(team_number) == 1:
-                for each in team_number:
-                    details_obj = self.get_last_deployment_pipeline(
-                        reference=reference,
-                        team_number=each,
-                        return_pipeline_details=True,
-                    )
-                    if details_obj is not None:
-                        entry_list.extend([x.get_entry_list() for x in details_obj])
+            if pipeline_id is None:
+                if isinstance(team_number, int):
+                    team_number = [team_number]
+                if len(team_number) == 1:
+                    for each in team_number:
+                        details_obj = self.get_last_deployment_pipeline(
+                            reference=reference,
+                            team_number=each,
+                            return_pipeline_details=True,
+                        )
+                        if details_obj is not None:
+                            entry_list.extend([x.get_entry_list() for x in details_obj])
+                else:
+                    for each in tqdm(
+                        team_number,
+                        desc="Fetching deployment status",
+                    ):
+                        details_obj = self.get_last_deployment_pipeline(
+                            reference=reference,
+                            team_number=each,
+                            return_pipeline_details=True,
+                        )
+                        if details_obj is not None:
+                            entry_list.extend([x.get_entry_list() for x in details_obj])
             else:
-                for each in tqdm(
-                    team_number,
-                    desc="Fetching deployment status",
-                ):
-                    details_obj = self.get_last_deployment_pipeline(
-                        reference=reference,
-                        team_number=each,
-                        return_pipeline_details=True,
+                pipeline_obj = self.get_pipeline_by_id(pipeline_id=pipeline_id)
+                if pipeline_obj is not None:
+                    details_obj = PipelineDetails(
+                        pipeline_obj.id,
+                        pipeline_obj.name,
+                        pipeline_obj.ref,
+                        pipeline_obj.status,
+                        pipeline_obj.web_url,
+                        pipeline_obj.updated_at,
                     )
-                    if details_obj is not None:
-                        entry_list.extend([x.get_entry_list() for x in details_obj])
+                    entry_list.extend([details_obj.get_entry_list()])
 
         return header_list, entry_list
 
