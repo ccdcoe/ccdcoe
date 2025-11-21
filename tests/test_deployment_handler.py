@@ -334,11 +334,11 @@ class TestDeploymentHandler:
                 PipelineVars(
                     CICD_TEAM="SA",
                     REDEPLOY_TIER0=gitlab_boolean.ENABLED,
-                    DEPLOY_DESCRIPTION="REDEPLOY Standalone - LIMITED to hosts: web-target-1 - ",
+                    DEPLOY_DESCRIPTION="REDEPLOY Standalone - LIMITED to hosts: web-target-1",
                     ONLY_HOSTS="web-target-1",
                     STANDALONE_DEPLOYMENT=gitlab_boolean.ENABLED,
                 ),
-                "Project pipeline for standalone deployment(REDEPLOY Standalone - LIMITED to hosts: web-target-1 - ) deployed -> "
+                "Project pipeline for standalone deployment(REDEPLOY Standalone - LIMITED to hosts: web-target-1) deployed -> "
                 "pipeline id fake_pipeline_id status: fake_pipeline_status ref: fake_pipeline_ref",
             ),
         ],
