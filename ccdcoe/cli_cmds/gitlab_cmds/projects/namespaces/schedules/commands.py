@@ -17,10 +17,14 @@ logger = logging.getLogger(__name__)
 @click.group(
     "schedule",
     no_args_is_help=True,
-    help="Perform actions on the deployment schedules / scheduled pipelines.",
 )
 @click.pass_obj
 def schedule_cmd(gitlab_handler: GitlabHandler):
+    """
+    Perform namespace related operations on gitlab repositories.
+
+    NAMESPACE_ID is the full name (e.g. 'ls/ls26') or the ID of the namespace.
+    """
     pass
 
 

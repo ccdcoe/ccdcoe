@@ -19,12 +19,16 @@ logger = logging.getLogger(__name__)
     "pipeline",
     no_args_is_help=True,
     invoke_without_command=True,
-    help="Gitlab project namespaces pipelines.",
 )
 @click.pass_obj
 def pipeline_cmd(
     gitlab_handler: GitlabHandler,
 ):
+    """
+    Perform namespace related operations on gitlab repositories.
+
+    NAMESPACE_ID is the full name (e.g. 'ls/ls26') or the ID of the namespace.
+    """
     pass
 
 
