@@ -2,9 +2,10 @@
 import codecs
 from itertools import chain
 from pathlib import Path
-from setuptools import find_packages, setup
+
 from poetry.core.packages.dependency import Dependency
 from poetry.factory import Factory
+from setuptools import find_packages, setup
 
 
 def parse_group_deps(pyproject_data: dict):

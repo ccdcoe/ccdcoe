@@ -150,7 +150,7 @@ def config(
             "Cannot set both --ignore_deploy_order and --reverse_deploy_order at the same time"
         )
         return False
-    
+
     if skip_hosts is not None:
         skip_hosts = skip_hosts.replace(" ", "").split(",")
     if only_hosts is not None:

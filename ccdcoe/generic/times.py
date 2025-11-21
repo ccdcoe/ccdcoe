@@ -1,7 +1,7 @@
-from dateutil.tz import UTC
 import calendar
 from datetime import datetime
 
+from dateutil.tz import UTC
 
 ISOFORMAT = "%Y-%m-%dT%H:%M:%SZ"
 

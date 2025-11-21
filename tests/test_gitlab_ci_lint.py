@@ -39,4 +39,6 @@ class TestValidateGitlabCi:
         lint_result = project.ci_lint.create({"content": sio.read()})
 
         assert isinstance(lint_result, ProjectCiLint)
-        assert lint_result.valid, f"GitLab CI Lint failed with errors: {lint_result.errors}"
+        assert (
+            lint_result.valid
+        ), f"GitLab CI Lint failed with errors: {lint_result.errors}"

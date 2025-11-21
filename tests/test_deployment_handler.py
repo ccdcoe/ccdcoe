@@ -137,7 +137,7 @@ class TestDeploymentHandler:
 
         new_gitlab_ci = dh.get_gitlab_ci_from_tier_assignment(ignore_deploy_order=True)
         assert "needs" not in new_gitlab_ci["tier3b"]
-        assert "CoreTiers" not in new_gitlab_ci["stages"] 
+        assert "CoreTiers" not in new_gitlab_ci["stages"]
 
         new_gitlab_ci = dh.get_gitlab_ci_from_tier_assignment(
             only_hosts=["test2"], standalone_deployment=True
@@ -309,12 +309,13 @@ class TestDeploymentHandler:
 
                 assert data is not None
                 assert isinstance(data, FakeProjectPipeline)
-                
+
                 logged_messages = [record.message for record in handler.records]
 
-                assert any(deploy_msg in message for message in logged_messages), \
-                    f"Expected message '{deploy_msg}' not found in logs: {logged_messages}"
-                
+                assert any(
+                    deploy_msg in message for message in logged_messages
+                ), f"Expected message '{deploy_msg}' not found in logs: {logged_messages}"
+
             mocked_function.assert_called_once_with(
                 reference="main", variables=mock_pipeline_vars
             )

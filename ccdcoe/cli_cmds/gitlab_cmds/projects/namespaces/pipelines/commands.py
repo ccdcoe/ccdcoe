@@ -1,17 +1,13 @@
 import logging
 
 import click
-import gitlab.exceptions
+import gitlab
 from tabulate import tabulate
 
 from ccdcoe.cli_cmds.cli_utils.output import ConsoleOutput
 from ccdcoe.cli_cmds.cli_utils.utils import add_options
-from ccdcoe.cli_cmds.deploy_cmds.general_options.options import (
-    team_number_option,
-    branch_option,
-)
-from ccdcoe.deployments.deployment_handler import DeploymentHandler
-from ccdcoe.deployments.parsers.team_numbers import parse_team_number
+from ccdcoe.cli_cmds.deploy_cmds.general_options.options import branch_option
+from ccdcoe.gitlab.gitlab_handler import GitlabHandler
 from ccdcoe.loggers.console_logger import ConsoleLogger
 
 logging.setLoggerClass(ConsoleLogger)
@@ -22,19 +18,20 @@ logger = logging.getLogger(__name__)
 @click.group(
     "pipeline",
     no_args_is_help=True,
-    help="Perform actions on the deployment pipelines. Actions like requesting the status, cancelling pipelines \n"
-    "or deleting pipelines.",
+    invoke_without_command=True,
+    help="Gitlab project namespaces pipelines.",
 )
-@click.pass_context
-def pipeline_cmd(ctx):
-    ctx.obj = DeploymentHandler()
+@click.pass_obj
+def pipeline_cmd(
+    gitlab_handler: GitlabHandler,
+):
+    pass
 
 
 @pipeline_cmd.command(
-    help="Show status of deployments.",
+    "status",
     no_args_is_help=True,
 )
-@add_options(team_number_option)
 @add_options(branch_option)
 @click.option(
     "-a",
@@ -42,9 +39,7 @@ def pipeline_cmd(ctx):
     is_flag=True,
     default=False,
     show_default=True,
-    help="Show status of all available deployments pipelines. If this flag is set; the 'team' variable is ignored "
-    "and all teams (controlled by the range between the DEPLOYMENT_RANGE_LOWER and the DEPLOYMENT_RANGE_UPPER "
-    "variables) are queried.",
+    help="Show status of all available pipelines ran without the last 4 hours.",
 )
 @click.option(
     "-i",
@@ -52,45 +47,33 @@ def pipeline_cmd(ctx):
     help="The ID number of the pipeline you wish to see the status of.",
 )
 @click.pass_obj
-def status(
-    deployment_handler: DeploymentHandler,
+def status_cmd(
+    gitlab_handler: GitlabHandler,
     branch: str,
-    team: str,
     all: bool,
     id: str = None,
 ):
+    if gitlab_handler.namespace_id is not None:
+        if all:
+            header_list, entry_list = (
+                gitlab_handler.pipeline_handler.get_pipeline_status(
+                    gitlab_handler.namespace_id, reference=branch, fetch_all=True
+                )
+            )
+        else:
+            header_list, entry_list = (
+                gitlab_handler.pipeline_handler.get_pipeline_status(
+                    gitlab_handler.namespace_id, reference=branch, pipeline_id=id
+                )
+            )
 
-    deployment_handler.logger.info(f"Looking for deployments on branch: {branch}...")
-
-    if all:
-        deployment_handler.logger.info("Getting status from all teams...")
-        header_list, entry_list = deployment_handler.get_deployment_status(
-            reference=branch, team_number=parse_team_number(team), fetch_all=True
-        )
         ConsoleOutput.print(
             tabulate(entry_list, headers=header_list, tablefmt="fancy_grid")
         )
-    else:
-        if id is None:
-            deployment_handler.logger.info(f"Getting status team range: {team}...")
-            header_list, entry_list = deployment_handler.get_deployment_status(
-                reference=branch, team_number=parse_team_number(team)
-            )
-            ConsoleOutput.print(
-                tabulate(entry_list, headers=header_list, tablefmt="fancy_grid")
-            )
-        else:
-            deployment_handler.logger.info(f"Getting status pipeline id: {id}...")
-            header_list, entry_list = deployment_handler.get_deployment_status(
-                reference=branch, pipeline_id=id
-            )
-            ConsoleOutput.print(
-                tabulate(entry_list, headers=header_list, tablefmt="fancy_grid")
-            )
 
 
 @pipeline_cmd.command(
-    help="Cancel deployment pipeline.",
+    help="Cancel pipeline.",
     no_args_is_help=True,
 )
 @click.option(
@@ -100,11 +83,13 @@ def status(
 )
 @click.pass_obj
 def cancel(
-    deployment_handler: DeploymentHandler,
+    gitlab_handler: GitlabHandler,
     id: str,
 ):
     try:
-        the_pipeline = deployment_handler.get_pipeline_by_id(id)
+        the_pipeline = gitlab_handler.pipeline_handler.get_pipeline_by_id(
+            namespace_id=gitlab_handler.namespace_id, pipeline_id=id
+        )
         the_pipeline.cancel()
         ConsoleOutput.print(f"Pipeline: {the_pipeline.get_id()} cancelled!")
     except gitlab.exceptions.GitlabPipelineCancelError as e:
@@ -114,7 +99,7 @@ def cancel(
 
 
 @pipeline_cmd.command(
-    help="Delete deployment pipeline.",
+    help="Delete pipeline.",
     no_args_is_help=True,
 )
 @click.option(
@@ -124,11 +109,13 @@ def cancel(
 )
 @click.pass_obj
 def delete(
-    deployment_handler: DeploymentHandler,
+    gitlab_handler: GitlabHandler,
     id: str,
 ):
     try:
-        the_pipeline = deployment_handler.get_pipeline_by_id(id)
+        the_pipeline = gitlab_handler.pipeline_handler.get_pipeline_by_id(
+            namespace_id=gitlab_handler.namespace_id, pipeline_id=id
+        )
         the_pipeline.delete()
         ConsoleOutput.print(f"Pipeline: {the_pipeline.get_id()} deleted!")
     except gitlab.exceptions.GitlabDeleteError as e:
@@ -138,7 +125,7 @@ def delete(
 
 
 @pipeline_cmd.command(
-    help="Retry deployment pipeline.",
+    help="Retry pipeline.",
     no_args_is_help=True,
 )
 @click.option(
@@ -148,11 +135,13 @@ def delete(
 )
 @click.pass_obj
 def retry(
-    deployment_handler: DeploymentHandler,
+    gitlab_handler: GitlabHandler,
     id: str,
 ):
     try:
-        the_pipeline = deployment_handler.get_pipeline_by_id(id)
+        the_pipeline = gitlab_handler.pipeline_handler.get_pipeline_by_id(
+            namespace_id=gitlab_handler.namespace_id, pipeline_id=id
+        )
         the_pipeline.retry()
         ConsoleOutput.print(
             ConsoleOutput.print(f"Pipeline: {the_pipeline.get_id()} started (retried)!")

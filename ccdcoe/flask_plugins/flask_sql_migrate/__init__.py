@@ -1,6 +1,6 @@
 from logging.config import dictConfig
 
-from flask import Flask, current_app
+from flask import Flask
 from flask import g
 from flask_sqlalchemy import SQLAlchemy
 

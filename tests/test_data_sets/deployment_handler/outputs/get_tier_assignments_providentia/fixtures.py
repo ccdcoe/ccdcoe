@@ -1,5 +1,6 @@
 import json
 import os
+
 import pytest
 
 __LOCATION__ = os.path.dirname(os.path.realpath(__file__))

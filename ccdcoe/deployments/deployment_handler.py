@@ -5,16 +5,19 @@ import random
 import re
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, List, Tuple
+from typing import Any, Tuple
 
 import gitlab
 from gitlab import Gitlab
-from gitlab.v4.objects import Project, ProjectPipeline
+from gitlab.v4.objects import Project, ProjectPipeline, ProjectPipelineSchedule
 from tqdm import tqdm
 
 from ccdcoe.deployments.deployment_config import Config
 from ccdcoe.deployments.generic.constants import deploy_modes, gitlab_boolean
-from ccdcoe.deployments.objects.pipeline_details import PipelineDetails
+from ccdcoe.deployments.objects.pipeline_details import (
+    PipelineDetails,
+    PipelineScheduleDetails,
+)
 from ccdcoe.deployments.objects.pipeline_vars import PipelineVars
 from ccdcoe.deployments.objects.tiers import (
     Tiers,
@@ -105,6 +108,21 @@ class PipelineFilter:
                             pipeline.updated_at,
                         )
                     )
+        return filtered_pipelines
+
+    def pipelines_return_details(self):
+        filtered_pipelines = []
+        for pipeline in self.pipelines:
+            filtered_pipelines.append(
+                PipelineDetails(
+                    pipeline.id,
+                    pipeline.name,
+                    pipeline.ref,
+                    pipeline.status,
+                    pipeline.web_url,
+                    pipeline.updated_at,
+                )
+            )
         return filtered_pipelines
 
 
@@ -365,7 +383,7 @@ class DeploymentHandler(object):
                 description += f"SKIP_VULNS - "
 
             if only_hosts:
-                description += f"LIMITED to hosts: {only_hosts} - "
+                description += f"LIMITED to hosts: {only_hosts}"
 
             if len(description) >= 255:
                 description = (
@@ -450,10 +468,10 @@ class DeploymentHandler(object):
     def get_deployment_status(
         self,
         reference: str = "main",
-        team_number: int | List[int] = 28,
+        team_number: int | list[int] = 28,
         fetch_all: bool = False,
         pipeline_id: int | str = None,
-    ) -> Tuple[List[str], List[str]]:  # pragma: no cover
+    ) -> Tuple[list[str], list[str]]:  # pragma: no cover
 
         self.logger.debug(
             f"Method '{inspect.currentframe().f_code.co_name}' called with arguments: {locals()}"
@@ -613,12 +631,12 @@ class DeploymentHandler(object):
 
     def generate_gitlab_ci(
         self,
-        data: dict[str, List[dict[str, dict[str, Any]]]],
-        skip_hosts: List[str] = None,
-        only_hosts: List[str] = None,
-        actor: List[str] = None,
-        large_tiers: List[str] = None,
-        standalone_tiers: List[str] = None,
+        data: dict[str, list[dict[str, dict[str, Any]]]],
+        skip_hosts: list[str] = None,
+        only_hosts: list[str] = None,
+        actor: list[str] = None,
+        large_tiers: list[str] = None,
+        standalone_tiers: list[str] = None,
         ignore_deploy_order: bool = False,
         reverse_deploy_order: bool = False,
         docker_image_count: int = 1,
@@ -880,18 +898,18 @@ class DeploymentHandler(object):
 
     def get_gitlab_ci_from_tier_assignment(
         self,
-        skip_hosts: List[str] = None,
-        only_hosts: List[str] = None,
-        actor: List[str] = None,
-        large_tiers: List[str] = None,
-        standalone_tiers: List[str] = None,
+        skip_hosts: list[str] = None,
+        only_hosts: list[str] = None,
+        actor: list[str] = None,
+        large_tiers: list[str] = None,
+        standalone_tiers: list[str] = None,
         ignore_deploy_order: bool = False,
         reverse_deploy_order: bool = False,
         docker_image_count: int = 1,
         standalone_deployment: bool = False,
         core_level: int = 0,
         nova_version: str = "PRODUCTION",
-    ) -> dict[str, List[Any]]:
+    ) -> dict[str, list[Any]]:
 
         if not standalone_deployment:
             tier_assignments = self.get_tier_assignments_providentia()
@@ -916,3 +934,53 @@ class DeploymentHandler(object):
         )
 
         return gitlab_ci
+
+    def get_pipeline_schedule(
+        self, schedule_id: int = None, fetch_all: bool = False
+    ) -> ProjectPipelineSchedule | list[ProjectPipelineSchedule]:
+        pass
+
+        the_project = self.get_project_by_namespace(self.config.PROJECT_NAMESPACE)
+
+        if fetch_all:
+            return the_project.pipelineschedules.list(get_all=True)
+        else:
+            return the_project.pipelineschedules.get(schedule_id)
+
+    def get_pipeline_schedule_status(
+        self, schedule_id: int = None, fetch_all: bool = False
+    ) -> Tuple[list[str], list[str]]:
+        self.logger.debug(
+            f"Method '{inspect.currentframe().f_code.co_name}' called with arguments: {locals()}"
+        )
+
+        header_list = [
+            "ID",
+            "Description",
+            "Cron",
+            "TZ",
+            "Active",
+            "Branch",
+            "Owner",
+            "Next Run",
+            "Last run result",
+        ]
+        entry_list = []
+        all_schedule_objs = []
+        if fetch_all:
+            all_schedules = self.get_pipeline_schedule(fetch_all=fetch_all)
+            all_ids = [x.id for x in all_schedules]
+
+            for each in all_ids:
+                all_schedule_objs.append(self.get_pipeline_schedule(schedule_id=each))
+        else:
+            all_schedule_objs.append(
+                self.get_pipeline_schedule(schedule_id=schedule_id)
+            )
+        all_schedule_objs = [
+            PipelineScheduleDetails.from_pipelineschedule_attributes(x.attributes)
+            for x in all_schedule_objs
+        ]
+        entry_list.extend([x.get_entry_list() for x in all_schedule_objs])
+
+        return header_list, entry_list
