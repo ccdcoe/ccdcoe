@@ -396,10 +396,11 @@ class DeploymentHandler(object):
                 reference=reference, variables=tier_data
             )
             if project_pipeline is not None:
-                return (
+                self.logger.info(
                     f"Project pipeline for standalone deployment({description}) deployed -> "
                     f"pipeline id {project_pipeline.id} status: {project_pipeline.status} ref: {project_pipeline.ref}"
                 )
+                return project_pipeline
         except Exception as e:
             self.logger.error(f"Uncaught exception -> {e}")
 
