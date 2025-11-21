@@ -1,11 +1,24 @@
 import logging
 
 import click
-from tabulate import tabulate
 
 from ccdcoe.cli_cmds.cli_utils.mutex import Mutex
 from ccdcoe.cli_cmds.cli_utils.output import ConsoleOutput
 from ccdcoe.cli_cmds.cli_utils.utils import add_options
+from ccdcoe.cli_cmds.deploy_cmds.general_options.options import (
+    team_number_option,
+    branch_option,
+    skip_vulns_option,
+    snapshot_option,
+    deploy_mode_option,
+    skip_hosts_option,
+    only_hosts_option,
+    actor_option,
+    large_tiers_option,
+    standalone_tiers_option,
+    nova_option,
+    docker_image_count_option,
+)
 from ccdcoe.deployments.deployment_handler import DeploymentHandler
 from ccdcoe.deployments.generic.constants import deploy_modes
 from ccdcoe.deployments.parsers.team_numbers import parse_team_number
@@ -14,256 +27,6 @@ from ccdcoe.loggers.console_logger import ConsoleLogger
 logging.setLoggerClass(ConsoleLogger)
 
 logger = logging.getLogger(__name__)
-
-_team_number_option = [
-    click.option(
-        "-t",
-        "--team",
-        show_default=True,
-        default="28",
-        help="The team number to deploy; this could be a comma separated (1,2) or hyphen separated (3-7) string "
-        "or a combination of both. So entering '1,2' will deploy both team 1 and team 2; entering '3-7' will "
-        "deploy teams 3 through 7 and entering 1,2,3-7,9 will deploy teams 1,2,3,4,5,6,7 and 9",
-    )
-]
-
-_branch_option = [
-    click.option(
-        "-b",
-        "--branch",
-        type=str,
-        default="main",
-        show_default=True,
-        help="Limits the deployment status to this branch.",
-    )
-]
-
-_skip_vulns_option = [
-    click.option(
-        "-s",
-        "--skip_vulns",
-        type=bool,
-        default=False,
-        show_default=True,
-        help="Should the vulnerability deployment be skipped.",
-    )
-]
-
-_snapshot_option = [
-    click.option(
-        "--snapshot",
-        help="Snapshot systems after deployment",
-        is_flag=True,
-        default=True,
-        show_default=True,
-    ),
-    click.option(
-        "--snap_name",
-        help="Name of the snapshot",
-        type=str,
-        default="CLEAN",
-        show_default=True,
-    ),
-]
-
-_deploy_mode_option = [
-    click.option(
-        "--deploy",
-        help="Set mode to deploy",
-        is_flag=True,
-        cls=Mutex,
-        not_required_if=[
-            "undeploy",
-            "snap_deploy",
-            "clean_snap_deploy",
-            "revert",
-            "poweron",
-            "shutdown",
-            "clean_snap_deploy_shutdown",
-        ],
-    ),
-    click.option(
-        "--undeploy",
-        help="Set mode to undeploy",
-        is_flag=True,
-        cls=Mutex,
-        not_required_if=[
-            "deploy",
-            "snap_deploy",
-            "clean_snap_deploy",
-            "revert",
-            "poweron",
-            "shutdown",
-            "clean_snap_deploy_shutdown",
-        ],
-    ),
-    click.option(
-        "--snap_deploy",
-        help="Set mode to deploy-snap",
-        is_flag=True,
-        cls=Mutex,
-        not_required_if=[
-            "deploy",
-            "undeploy",
-            "clean_snap_deploy",
-            "revert",
-            "poweron",
-            "shutdown",
-            "clean_snap_deploy_shutdown",
-        ],
-    ),
-    click.option(
-        "--clean_snap_deploy",
-        help="Set mode to deploy-clean-snap",
-        is_flag=True,
-        cls=Mutex,
-        not_required_if=[
-            "deploy",
-            "undeploy",
-            "snap_deploy",
-            "revert",
-            "poweron",
-            "shutdown",
-            "clean_snap_deploy_shutdown",
-        ],
-    ),
-    click.option(
-        "--revert",
-        help="Set mode to revert",
-        is_flag=True,
-        cls=Mutex,
-        not_required_if=[
-            "deploy",
-            "undeploy",
-            "snap_deploy",
-            "clean_snap_deploy",
-            "poweron",
-            "shutdown",
-            "clean_snap_deploy_shutdown",
-        ],
-    ),
-    click.option(
-        "--poweron",
-        help="Set mode to poweron",
-        is_flag=True,
-        cls=Mutex,
-        not_required_if=[
-            "deploy",
-            "undeploy",
-            "snap_deploy",
-            "clean_snap_deploy",
-            "revert",
-            "shutdown",
-            "clean_snap_deploy_shutdown",
-        ],
-    ),
-    click.option(
-        "--shutdown",
-        help="Set mode to shutdown",
-        is_flag=True,
-        cls=Mutex,
-        not_required_if=[
-            "deploy",
-            "undeploy",
-            "snap_deploy",
-            "clean_snap_deploy",
-            "revert",
-            "poweron",
-            "clean_snap_deploy_shutdown",
-        ],
-    ),
-    click.option(
-        "--clean_snap_deploy_shutdown",
-        help="Set mode to deploy-clean-snap-shutdown, i.e. clean snap and keep VM powered off after",
-        is_flag=True,
-        cls=Mutex,
-        not_required_if=[
-            "deploy",
-            "undeploy",
-            "snap_deploy",
-            "clean_snap_deploy",
-            "revert",
-            "poweron",
-            "shutdown",
-        ],
-    ),
-]
-
-_skip_hosts_option = [
-    click.option(
-        "--skip_hosts",
-        help="Comma separated list of hosts to skip",
-        default="",
-        is_flag=False,
-        flag_value="",
-        show_default=True,
-    )
-]
-
-_only_hosts_option = [
-    click.option(
-        "--only_hosts",
-        help="Comma separated list of hosts to deploy, everything else will be ignored",
-        default="",
-        is_flag=False,
-        flag_value="",
-        show_default=True,
-    )
-]
-
-_actor_option = [
-    click.option(
-        "--actor",
-        help="Comma separated list of actors to deploy, by default all actors are deployed",
-        default="",
-        is_flag=False,
-        flag_value="",
-        show_default=True,
-    )
-]
-
-_large_tiers_option = [
-    click.option(
-        "--large_tiers",
-        help="Comma separated list of tiers that need more resources",
-        default="",
-        is_flag=False,
-        flag_value="",
-        show_default=True,
-    )
-]
-
-_standalone_tiers_option = [
-    click.option(
-        "--standalone_tiers",
-        help="Comma separated list of tiers that have standalone VMs, i.e. no team number",
-        default="",
-        is_flag=False,
-        flag_value="",
-        show_default=True,
-    )
-]
-
-_nova_option = [
-    click.option(
-        "-n",
-        "--nova_version",
-        type=click.Choice(["PRODUCTION", "STAGING"], case_sensitive=False),
-        default="PRODUCTION",
-        show_default=True,
-        help="Choose nova.core version",
-    )
-]
-_docker_image_count_option = [
-    click.option(
-        "--docker_image_count",
-        help="Number of available docker images",
-        default=1,
-        is_flag=False,
-        flag_value="",
-        show_default=True,
-    )
-]
 
 
 @click.group(
@@ -283,18 +46,18 @@ def deploy_cmd(ctx):
     "\n\nA full redeployment in this context reveres to a redeployment of all tiers.",
     no_args_is_help=True,
 )
-@add_options(_branch_option)
-@add_options(_team_number_option)
-@add_options(_skip_vulns_option)
-@add_options(_snapshot_option)
-@add_options(_deploy_mode_option)
-@add_options(_skip_hosts_option)
-@add_options(_only_hosts_option)
-@add_options(_actor_option)
-@add_options(_large_tiers_option)
-@add_options(_standalone_tiers_option)
-@add_options(_nova_option)
-@add_options(_docker_image_count_option)
+@add_options(branch_option)
+@add_options(team_number_option)
+@add_options(skip_vulns_option)
+@add_options(snapshot_option)
+@add_options(deploy_mode_option)
+@add_options(skip_hosts_option)
+@add_options(only_hosts_option)
+@add_options(actor_option)
+@add_options(large_tiers_option)
+@add_options(standalone_tiers_option)
+@add_options(nova_option)
+@add_options(docker_image_count_option)
 @click.pass_obj
 def full(
     deployment_handler: DeploymentHandler,
@@ -372,18 +135,18 @@ def full(
     "tier (using --level); or limit the deployment to a certain tier (using --limit).",
     no_args_is_help=True,
 )
-@add_options(_branch_option)
-@add_options(_team_number_option)
-@add_options(_skip_vulns_option)
-@add_options(_snapshot_option)
-@add_options(_deploy_mode_option)
-@add_options(_skip_hosts_option)
-@add_options(_only_hosts_option)
-@add_options(_actor_option)
-@add_options(_large_tiers_option)
-@add_options(_standalone_tiers_option)
-@add_options(_nova_option)
-@add_options(_docker_image_count_option)
+@add_options(branch_option)
+@add_options(team_number_option)
+@add_options(skip_vulns_option)
+@add_options(snapshot_option)
+@add_options(deploy_mode_option)
+@add_options(skip_hosts_option)
+@add_options(only_hosts_option)
+@add_options(actor_option)
+@add_options(large_tiers_option)
+@add_options(standalone_tiers_option)
+@add_options(nova_option)
+@add_options(docker_image_count_option)
 @click.option("--show_levels", help="Show available tiers", is_flag=True)
 @click.option("--assignments", help="Show tier assignments", is_flag=True)
 @click.option(
@@ -526,11 +289,11 @@ def tier(
     "any tiers; but simply deploys the selected hosts in a single parallel stage.",
     no_args_is_help=True,
 )
-@add_options(_branch_option)
-@add_options(_skip_vulns_option)
-@add_options(_snapshot_option)
-@add_options(_deploy_mode_option)
-@add_options(_only_hosts_option)
+@add_options(branch_option)
+@add_options(skip_vulns_option)
+@add_options(snapshot_option)
+@add_options(deploy_mode_option)
+@add_options(only_hosts_option)
 @click.pass_obj
 def standalone(
     deployment_handler: DeploymentHandler,
@@ -582,62 +345,3 @@ def standalone(
         f"Standalone deployment for hosts: {only_hosts} started!"
     )
     ConsoleOutput.print(ret_data)
-
-
-@deploy_cmd.command(
-    help="Show status of deployments.",
-    no_args_is_help=True,
-)
-@add_options(_team_number_option)
-@add_options(_branch_option)
-@click.option(
-    "-a",
-    "--all",
-    is_flag=True,
-    default=False,
-    show_default=True,
-    help="Show status of all available deployments pipelines. If this flag is set; the 'team' variable is ignored "
-    "and all teams (controlled by the range between the DEPLOYMENT_RANGE_LOWER and the DEPLOYMENT_RANGE_UPPER "
-    "variables) are queried.",
-)
-@click.option(
-    "-i",
-    "--id",
-    help="The ID number of the pipeline you wish to see the status of.",
-)
-@click.pass_obj
-def status(
-    deployment_handler: DeploymentHandler,
-    branch: str,
-    team: str,
-    all: bool,
-    id: str = None,
-):
-
-    deployment_handler.logger.info(f"Looking for deployments on branch: {branch}...")
-
-    if all:
-        deployment_handler.logger.info("Getting status from all teams...")
-        header_list, entry_list = deployment_handler.get_deployment_status(
-            reference=branch, team_number=parse_team_number(team), fetch_all=True
-        )
-        ConsoleOutput.print(
-            tabulate(entry_list, headers=header_list, tablefmt="fancy_grid")
-        )
-    else:
-        if id is None:
-            deployment_handler.logger.info(f"Getting status team range: {team}...")
-            header_list, entry_list = deployment_handler.get_deployment_status(
-                reference=branch, team_number=parse_team_number(team)
-            )
-            ConsoleOutput.print(
-                tabulate(entry_list, headers=header_list, tablefmt="fancy_grid")
-            )
-        else:
-            deployment_handler.logger.info(f"Getting status pipeline id: {id}...")
-            header_list, entry_list = deployment_handler.get_deployment_status(
-                reference=branch, pipeline_id=id
-            )
-            ConsoleOutput.print(
-                tabulate(entry_list, headers=header_list, tablefmt="fancy_grid")
-            )

@@ -438,7 +438,7 @@ class DeploymentHandler(object):
 
             pipeline = the_project.pipelines.get(pipeline_id)
 
-            self.logger.info(f"Fetched pipeline with id {pipeline_id}: {pipeline}")
+            self.logger.debug(f"Fetched pipeline with id {pipeline_id}: {pipeline}")
             return pipeline
 
         except gitlab.exceptions.GitlabGetError as e:

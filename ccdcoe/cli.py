@@ -5,6 +5,9 @@ from logging.config import dictConfig
 import click
 
 from ccdcoe.cli_cmds.deploy_cmds import commands as deploy_commands
+from ccdcoe.cli_cmds.deploy_cmds.pipeline_cmds import (
+    commands as deployment_pipeline_commands,
+)
 from ccdcoe.cli_cmds.pipeline_cmds import commands as pipeline_commands
 from ccdcoe.cli_cmds.providentia_cmds import commands as providentia_commands
 from ccdcoe.loggers.console_logger import ConsoleLogger
@@ -58,6 +61,12 @@ def main(ctx, log_level, verbose):
     logger.debug("DEBUG Logging configured.....")
 
 
+# DEPLOYMENT COMMANDS
+deploy_commands.deploy_cmd.add_command(deployment_pipeline_commands.pipeline_cmd)
 main.add_command(deploy_commands.deploy_cmd)
+
+# PROVIDENTIA COMMANDS
 main.add_command(providentia_commands.providentia_cmd)
+
+# PIPELINE CONFIG COMMANDS
 main.add_command(pipeline_commands.pipeline_cmd)
