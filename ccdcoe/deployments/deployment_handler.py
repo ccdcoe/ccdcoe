@@ -965,6 +965,7 @@ class DeploymentHandler(object):
             "Owner",
             "Next Run",
             "Last run result",
+            "Variables"
         ]
         entry_list = []
         all_schedule_objs = []

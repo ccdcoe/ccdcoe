@@ -54,7 +54,7 @@ class PipelineScheduleDetails:
     owner: dict[str, str]
     next_run_at: str
     last_pipeline: dict[str, Any]
-    variables: list[dict[str, Any]]
+    variables: list[dict[str, Any]] = None
 
     @classmethod
     def from_pipelineschedule_attributes(
@@ -77,4 +77,5 @@ class PipelineScheduleDetails:
             self.owner["name"],
             self.next_run_at,
             colorize_status(self.last_pipeline["status"]),
+            self.variables if self.variables is not None else [],
         ]

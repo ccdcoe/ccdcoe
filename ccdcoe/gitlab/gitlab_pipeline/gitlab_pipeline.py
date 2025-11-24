@@ -149,6 +149,7 @@ class GitlabPipeline(GitlabBase):
             "Owner",
             "Next Run",
             "Last run result",
+            "Variables"
         ]
         entry_list = []
         all_schedule_objs = []
