@@ -256,6 +256,7 @@ class DeploymentHandler(object):
         docker_image_count: int = 1,
         nova_version: str = "PRODUCTION",
         core_level: int = 0,
+        windows_tier: str = "",
     ) -> ProjectPipeline:
 
         self.logger.debug(
@@ -304,6 +305,7 @@ class DeploymentHandler(object):
             tier_data["DOCKER_IMAGE_COUNT"] = docker_image_count
             tier_data["NOVA_VERSION"] = nova_version
             tier_data["CORE_LEVEL"] = core_level
+            tier_data["WINDOWS_TIER"] = windows_tier
 
             description = f"{deploy_mode.upper()} Team {team_number} - "
 
@@ -604,7 +606,15 @@ class DeploymentHandler(object):
                     )
                 # match on tier tag
                 tier_level = tag_list[0].replace("custom_", "").title()
-                if len(tier_level) > 6:
+                if len(tier_level) > 7:
+                    # tier with 2 sub-levels do some additional work....
+                    top_tier_level = tier_level[:4]
+                    sub_level = tier_level[5:7].upper()
+                    second_sub_level = tier_level[8:].upper()
+                    full_tier_level = (
+                        top_tier_level + sub_level + "_" + second_sub_level
+                    )
+                elif len(tier_level) > 6:
                     # tier with sub-level do some additional work....
                     top_tier_level = tier_level[:4]
                     sub_level = tier_level[-2:].upper()
@@ -644,7 +654,9 @@ class DeploymentHandler(object):
         standalone_deployment: bool = False,
         core_level: int = 0,
         nova_version: str = "PRODUCTION",
+        windows_tier: str = None,
     ) -> dict[str, list]:
+
         if skip_hosts is not None and only_hosts is not None:
             if any(skip_hosts) and any(only_hosts):
                 self.logger.warning(
@@ -667,12 +679,17 @@ class DeploymentHandler(object):
         if standalone_tiers is None:
             standalone_tiers = []
 
+        if windows_tier is None:
+            windows_tier = ""
+        else:
+            windows_tier = str(windows_tier)
+
         self.logger.debug(
             f"Method '{inspect.currentframe().f_code.co_name}' called with arguments: {locals()}"
         )
 
         tiers = list(data.keys())
-        top_level_tiers = list(set(re.sub(r"[a-zA-Z]$", "", tier) for tier in tiers))
+        top_level_tiers = list(set(re.sub(r"[a-zA-Z_]*$", "", tier) for tier in tiers))
 
         # Sort numerically based on the number in "TierX"
         top_level_tiers.sort(key=lambda x: int(re.search(r"\d+", x).group()))
@@ -698,19 +715,34 @@ class DeploymentHandler(object):
         gitlab_ci = {"stages": stages}
 
         jobs = {}
+        win_host_list_core = []
 
         for i, tier in enumerate(tiers):
-            mode = getenv_str("DEPLOY_MODE", deploy_modes.REDEPLOY)
-            job_name = f"{tier.lower()}"
-            top_level_tier = re.sub(r"[a-zA-Z]$", "", tier)
-            top_level_tier_number = int(re.sub(r"\D", "", top_level_tier))
 
-            deploy_rule = [
-                {
-                    "if": f'$REDEPLOY_{top_level_tier.upper()} == "true"',
-                    "when": "on_success",
-                }
-            ]
+            mode = getenv_str("DEPLOY_MODE", deploy_modes.REDEPLOY)
+            top_level_tier = re.sub(r"[a-zA-Z_]*$", "", tier)
+            top_level_tier_number = re.sub(r"\D", "", top_level_tier)
+
+            if top_level_tier_number == windows_tier and "CORE" in tier.upper():
+                win_sublevel = re.sub(r"\_(.*)", "", tier)
+                job_name = win_sublevel.lower()
+            else:
+                job_name = f"{tier.lower()}"
+
+            if top_level_tier_number == windows_tier:
+                deploy_rule = [
+                    {
+                        "if": f'$REDEPLOY_{top_level_tier.upper()} == "true" && $DEPLOY_MODE != "redeploy" && $DEPLOY_MODE != "deploy"',
+                        "when": "on_success",
+                    }
+                ]
+            else:
+                deploy_rule = [
+                    {
+                        "if": f'$REDEPLOY_{top_level_tier.upper()} == "true"',
+                        "when": "on_success",
+                    }
+                ]
             host_list = []
             for host in data[tier]:
                 host, host_actor = list(host.items())[0]
@@ -781,6 +813,9 @@ class DeploymentHandler(object):
                             entry += f"_t{team_nr}"
                         host_list.append(entry)
 
+                if top_level_tier_number == windows_tier and "CORE" in tier.upper():
+                    win_host_list_core.append({"host": entry, "actor": host_actor})
+
             if top_level_tier.upper() in large_tiers:
                 job_tag = self.config.TAG_RUNNER_FAT
 
@@ -795,9 +830,14 @@ class DeploymentHandler(object):
 
             job_stage = (
                 top_level_tier
-                if core_level == 0 or top_level_tier_number > core_level
+                if core_level == 0 or int(top_level_tier_number) > core_level
                 else "CoreTiers"
             )
+
+            job_script = [
+                f'echo "Deploying $HOST..."',
+                f"bash /app/deploy.sh $HOST $SKIP_VULNS $DEPLOY_MODE $SNAPSHOT_NAME",
+            ]
 
             jobs[job_name] = {
                 "stage": job_stage,
@@ -808,10 +848,7 @@ class DeploymentHandler(object):
                     'echo "$VAULT_PASS" >> /app/.vault_pass',
                 ],
                 "rules": deploy_rule,
-                "script": [
-                    f'echo "Deploying $HOST..."',
-                    f"bash /app/deploy.sh $HOST $SKIP_VULNS $DEPLOY_MODE $SNAPSHOT_NAME",
-                ],
+                "script": job_script,
                 "parallel": {"matrix": [{"HOST": host_list}]},
                 "dependencies": [],  # no artifacts needed....
                 "retry": {
@@ -858,6 +895,91 @@ class DeploymentHandler(object):
                                 "optional": True,
                             }
                         ]
+
+        # windows
+        if windows_tier != "" and win_host_list_core == []:
+            self.logger.warning(
+                f"Tier {windows_tier} defined as Windows tier, but no Windows core hosts found, check your tier assignments"
+            )
+
+        win_core_actors = defaultdict(list)
+        for entry in win_host_list_core:
+            win_core_actors[entry["actor"]].append(entry["host"])
+        for act in win_core_actors:
+            self.logger.debug(
+                f"Windows Core Hosts to be deployed for actor {act}: {win_core_actors[act]}"
+            )
+
+            job_name = ("tier" + str(windows_tier) + "_core").lower()
+            jobs[job_name] = {}
+
+            if f"TIER{windows_tier}" in large_tiers:
+                job_tag = self.config.TAG_RUNNER_FAT
+
+            else:
+                job_tag = self.config.TAG_RUNNER_SLIM
+
+            job_script = [
+                f'echo "Deploying $HOST..."',
+                f"bash /app/order.sh $HOST $SKIP_VULNS $DEPLOY_MODE $SNAPSHOT_NAME",
+            ]
+
+            jobs[job_name] = {
+                "stage": f"Tier{windows_tier}",
+                "image": docker_image,
+                "tags": [job_tag],
+                "before_script": [
+                    "sudo bash /app/move_needed_files.sh",
+                    'echo "$VAULT_PASS" >> /app/.vault_pass',
+                ],
+                "rules": [
+                    {
+                        "if": f'$REDEPLOY_TIER{windows_tier} == "true" && ($DEPLOY_MODE == "redeploy" || $DEPLOY_MODE == "deploy")',
+                        "when": "on_success",
+                    }
+                ],
+                "script": job_script,
+                "dependencies": [],  # no artifacts needed....
+                "retry": {
+                    "max": 2,
+                    "when": [
+                        "runner_system_failure",
+                        "stuck_or_timeout_failure",
+                        "script_failure",
+                        "api_failure",
+                    ],
+                    "exit_codes": [1, 137],
+                },
+            }
+            jobs[job_name]["parallel"] = {
+                "matrix": [
+                    {"HOST": " ".join(win_core_actors[act])} for act in win_core_actors
+                ]
+            }
+
+            # jobs[("tier" + str(windows_tier) + win_sublevel).lower()]["parallel"] = {"matrix": [{"HOST": ' '.join(win_core_actors[actor])} for actor in win_core_actors]}
+
+        # Add needs for windows core job if core_level is set
+        if (
+            not ignore_deploy_order
+            and not reverse_deploy_order
+            and core_level > 0
+            and windows_tier != ""
+        ):
+            win_job_name = ("tier" + str(windows_tier) + "_core").lower()
+            if win_job_name in jobs:
+                last_core_job = None
+                for job_name, job_config in jobs.items():
+                    if job_config["stage"] == "CoreTiers":
+                        last_core_job = job_name
+
+                if last_core_job:
+                    jobs[win_job_name]["needs"] = [
+                        {
+                            "job": last_core_job,
+                            "optional": True,
+                        }
+                    ]
 
         if not ignore_deploy_order and reverse_deploy_order:
             job_keys = list(jobs.keys())
@@ -910,6 +1032,7 @@ class DeploymentHandler(object):
         standalone_deployment: bool = False,
         core_level: int = 0,
         nova_version: str = "PRODUCTION",
+        windows_tier: str = None,
     ) -> dict[str, list[Any]]:
 
         if not standalone_deployment:
@@ -932,6 +1055,7 @@ class DeploymentHandler(object):
             standalone_deployment=standalone_deployment,
             core_level=core_level,
             nova_version=nova_version,
+            windows_tier=windows_tier,
         )
 
         return gitlab_ci
@@ -965,7 +1089,7 @@ class DeploymentHandler(object):
             "Owner",
             "Next Run",
             "Last run result",
-            "Variables"
+            "Variables",
         ]
         entry_list = []
         all_schedule_objs = []

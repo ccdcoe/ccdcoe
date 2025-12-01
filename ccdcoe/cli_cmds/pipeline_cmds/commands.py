@@ -128,6 +128,14 @@ def pipeline_cmd(ctx):
     show_default=True,
     help="Choose nova.core version",
 )
+@click.option(
+    "--windows_tier",
+    help="Set this tier level as windows tier",
+    default=None,
+    is_flag=False,
+    flag_value="",
+    show_default=True,
+)
 @click.pass_obj
 def config(
     deployment_handler: DeploymentHandler,
@@ -144,6 +152,7 @@ def config(
     standalone_deployment: bool = False,
     core_level: int = 0,
     nova_version: str = "PRODUCTION",
+    windows_tier: str = None,
 ):
     if ignore_deploy_order and reverse_deploy_order:
         deployment_handler.logger.error(
@@ -175,6 +184,7 @@ def config(
         standalone_deployment=standalone_deployment,
         core_level=core_level,
         nova_version=nova_version,
+        windows_tier=windows_tier,
     )
     if show:
         ConsoleOutput.print(gitlab_ci_data)

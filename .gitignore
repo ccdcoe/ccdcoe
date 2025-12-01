@@ -371,3 +371,5 @@ cython_debug/
 
 dev_data
 /tests/test_data/
+
+.vscode/

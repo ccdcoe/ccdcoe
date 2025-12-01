@@ -136,7 +136,7 @@ class TestDeploymentHandler:
             )
 
         new_gitlab_ci = dh.get_gitlab_ci_from_tier_assignment(ignore_deploy_order=True)
-        assert "needs" not in new_gitlab_ci["tier3b"]
+        assert "needs" not in new_gitlab_ci["tier4a"]
         assert "CoreTiers" not in new_gitlab_ci["stages"]
 
         new_gitlab_ci = dh.get_gitlab_ci_from_tier_assignment(
@@ -148,6 +148,30 @@ class TestDeploymentHandler:
         new_gitlab_ci = dh.get_gitlab_ci_from_tier_assignment(core_level=2)
         assert new_gitlab_ci["stages"][0] == "CoreTiers"
         assert new_gitlab_ci["stages"][1] == "Tier3"
+
+        new_gitlab_ci = dh.get_gitlab_ci_from_tier_assignment(
+            core_level=2, windows_tier=3
+        )
+        assert new_gitlab_ci["stages"][0] == "CoreTiers"
+        assert "order.sh" in new_gitlab_ci["tier3_core"]["script"][1]
+        assert new_gitlab_ci["tier3_core"]["needs"][0]["job"] == "tier2b"
+        assert "dc1-grp1_t28 mail-grp1_t28 dc2-grp1_t28" in new_gitlab_ci["tier3_core"]["parallel"]["matrix"][1]["HOST"]
+
+        with catch_logs(level=logging.DEBUG, logger=dh.logger) as handler:
+            # creating new gitlab_ci with different settings
+            new_gitlab_ci = dh.get_gitlab_ci_from_tier_assignment(
+                only_hosts=["test2"],
+                large_tiers=["TIER2"],
+                docker_image_count=2,
+                windows_tier=2,
+            )
+
+            # test if warning was displayed
+            assert records_to_tuples(handler.records)[3] == (
+                dh.logger.name,
+                logging.WARNING,
+                "\x1b[33m[*] Tier 2 defined as Windows tier, but no Windows core hosts found, check your tier assignments\x1b[0m",
+            )
 
         # testing fetching tiers
         assert isinstance(dh.get_tier(1), Tier1)

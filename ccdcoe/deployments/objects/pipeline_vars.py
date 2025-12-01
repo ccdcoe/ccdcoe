@@ -43,6 +43,7 @@ class PipelineVars(Validations):
     DOCKER_IMAGE_COUNT: int = 1
     NOVA_VERSION: str = "PRODUCTION"
     CORE_LEVEL: int = 0
+    WINDOWS_TIER: str = ""
 
     def as_dict(self) -> dict[str, Any]:
         # noinspection PyUnresolvedReferences
