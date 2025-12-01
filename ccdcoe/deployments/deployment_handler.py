@@ -921,7 +921,7 @@ class DeploymentHandler(object):
 
             job_script = [
                 f'echo "Deploying $HOST..."',
-                f"bash /app/order.sh $HOST $SKIP_VULNS $DEPLOY_MODE $SNAPSHOT_NAME",
+                f"bash /app/order.sh --skip-vulns $SKIP_VULNS $HOST",
             ]
 
             jobs[job_name] = {
