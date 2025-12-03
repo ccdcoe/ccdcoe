@@ -729,7 +729,7 @@ class DeploymentHandler(object):
             else:
                 job_name = f"{tier.lower()}"
 
-            if top_level_tier_number == windows_tier:
+            if top_level_tier_number == windows_tier and "CORE" in tier.upper():
                 deploy_rule = [
                     {
                         "if": f'$REDEPLOY_{top_level_tier.upper()} == "true" && $DEPLOY_MODE != "redeploy" && $DEPLOY_MODE != "deploy"',
