@@ -716,6 +716,7 @@ class DeploymentHandler(object):
 
         jobs = {}
         win_host_list_core = []
+        windows_core_job_names = []
 
         for i, tier in enumerate(tiers):
 
@@ -863,6 +864,10 @@ class DeploymentHandler(object):
                 },
             }
 
+            # Track windows CORE jobs
+            if top_level_tier_number == windows_tier and "CORE" in tier.upper():
+                windows_core_job_names.append(job_name)
+
             if ignore_deploy_order:
                 continue
             else:
@@ -957,7 +962,6 @@ class DeploymentHandler(object):
                 ]
             }
 
-            # jobs[("tier" + str(windows_tier) + win_sublevel).lower()]["parallel"] = {"matrix": [{"HOST": ' '.join(win_core_actors[actor])} for actor in win_core_actors]}
 
         # Add needs for windows core job if core_level is set
         if (
@@ -981,8 +985,43 @@ class DeploymentHandler(object):
                         }
                     ]
 
+        # Add needs for non-CORE windows jobs to depend on windows core job
+        if not ignore_deploy_order and not reverse_deploy_order and windows_tier != "" and len(windows_core_job_names) > 0:
+            win_job_name = ("tier" + str(windows_tier) + "_core").lower()
+            if win_job_name in jobs:
+                # Find the first non-CORE windows job in the same tier
+                # Non-CORE jobs are those in the windows tier that are NOT in the windows_core_job_names list
+                first_non_core_win_job = None
+                
+                for job_name, job_config in jobs.items():
+                    if (
+                        job_config["stage"] == f"Tier{windows_tier}"
+                        and job_name != win_job_name
+                        and job_name not in windows_core_job_names
+                    ):
+                        if first_non_core_win_job is None:
+                            first_non_core_win_job = job_name
+                            break
+                
+                if first_non_core_win_job:
+                    # Add the windows core job as a dependency
+                    if "needs" not in jobs[first_non_core_win_job]:
+                        jobs[first_non_core_win_job]["needs"] = []
+                    
+                    jobs[first_non_core_win_job]["needs"].append(
+                        {
+                            "job": win_job_name,
+                            "optional": True,
+                        }
+                    )
+
         if not ignore_deploy_order and reverse_deploy_order:
             job_keys = list(jobs.keys())
+            # Filter out the windows core job since it has different rules and may not exist
+            win_core_job_name = ("tier" + str(windows_tier) + "_core").lower() if windows_tier != "" else None
+            if win_core_job_name and win_core_job_name in job_keys:
+                job_keys.remove(win_core_job_name)
+            
             for idx, job_key in enumerate(job_keys):
                 if idx < len(job_keys) - 1:  # Not the last job
                     jobs[job_key]["needs"] = [
