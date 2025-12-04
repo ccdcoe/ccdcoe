@@ -257,6 +257,7 @@ class DeploymentHandler(object):
         nova_version: str = "PRODUCTION",
         core_level: int = 0,
         windows_tier: str = "",
+        return_pipeline_object: bool = True,
     ) -> ProjectPipeline:
 
         self.logger.debug(
@@ -345,11 +346,15 @@ class DeploymentHandler(object):
                 reference=reference, variables=tier_data
             )
             if project_pipeline is not None:
-                self.logger.info(
+                msg = (
                     f"Project pipeline for team {team_number}({description}) deployed -> "
                     f"pipeline id {project_pipeline.id} status: {project_pipeline.status} ref: {project_pipeline.ref}"
                 )
-                return project_pipeline
+                self.logger.info(msg)
+                if return_pipeline_object:
+                    return project_pipeline
+                else:
+                    return msg
         except Exception as e:
             self.logger.error(f"Uncaught exception -> {e}")
 
@@ -361,6 +366,7 @@ class DeploymentHandler(object):
         snapshot: bool = True,
         snap_name: str = "CLEAN",
         only_hosts: str = "",
+        return_pipeline_object: bool = True,
     ) -> ProjectPipeline:
 
         self.logger.debug(
@@ -398,11 +404,15 @@ class DeploymentHandler(object):
                 reference=reference, variables=tier_data
             )
             if project_pipeline is not None:
-                self.logger.info(
+                msg = (
                     f"Project pipeline for standalone deployment({description}) deployed -> "
                     f"pipeline id {project_pipeline.id} status: {project_pipeline.status} ref: {project_pipeline.ref}"
                 )
-                return project_pipeline
+                self.logger.info(msg)
+                if return_pipeline_object:
+                    return project_pipeline
+                else:
+                    return msg
         except Exception as e:
             self.logger.error(f"Uncaught exception -> {e}")
 
@@ -962,7 +972,6 @@ class DeploymentHandler(object):
                 ]
             }
 
-
         # Add needs for windows core job if core_level is set
         if (
             not ignore_deploy_order
@@ -986,13 +995,18 @@ class DeploymentHandler(object):
                     ]
 
         # Add needs for non-CORE windows jobs to depend on windows core job
-        if not ignore_deploy_order and not reverse_deploy_order and windows_tier != "" and len(windows_core_job_names) > 0:
+        if (
+            not ignore_deploy_order
+            and not reverse_deploy_order
+            and windows_tier != ""
+            and len(windows_core_job_names) > 0
+        ):
             win_job_name = ("tier" + str(windows_tier) + "_core").lower()
             if win_job_name in jobs:
                 # Find the first non-CORE windows job in the same tier
                 # Non-CORE jobs are those in the windows tier that are NOT in the windows_core_job_names list
                 first_non_core_win_job = None
-                
+
                 for job_name, job_config in jobs.items():
                     if (
                         job_config["stage"] == f"Tier{windows_tier}"
@@ -1002,12 +1016,12 @@ class DeploymentHandler(object):
                         if first_non_core_win_job is None:
                             first_non_core_win_job = job_name
                             break
-                
+
                 if first_non_core_win_job:
                     # Add the windows core job as a dependency
                     if "needs" not in jobs[first_non_core_win_job]:
                         jobs[first_non_core_win_job]["needs"] = []
-                    
+
                     jobs[first_non_core_win_job]["needs"].append(
                         {
                             "job": win_job_name,
@@ -1018,10 +1032,14 @@ class DeploymentHandler(object):
         if not ignore_deploy_order and reverse_deploy_order:
             job_keys = list(jobs.keys())
             # Filter out the windows core job since it has different rules and may not exist
-            win_core_job_name = ("tier" + str(windows_tier) + "_core").lower() if windows_tier != "" else None
+            win_core_job_name = (
+                ("tier" + str(windows_tier) + "_core").lower()
+                if windows_tier != ""
+                else None
+            )
             if win_core_job_name and win_core_job_name in job_keys:
                 job_keys.remove(win_core_job_name)
-            
+
             for idx, job_key in enumerate(job_keys):
                 if idx < len(job_keys) - 1:  # Not the last job
                     jobs[job_key]["needs"] = [
