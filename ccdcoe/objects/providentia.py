@@ -81,7 +81,16 @@ class TeamVm:
             top_tier_level, sub_level = "", ""
         else:
             tier_level = tag_list[0].replace("custom_", "").title()
-            if len(tier_level) > 6:
+            if len(tier_level) > 7:
+                    # tier with 2 sub-levels do some additional work....
+                    top_tier_level = tier_level[:4]
+                    sub_level = tier_level[5:7].upper()
+                    second_sub_level = tier_level[8:].upper()
+                    full_tier_level = (
+                        top_tier_level + sub_level + "_" + second_sub_level
+                    )
+                    sub_level = sub_level + "_" + second_sub_level
+            elif len(tier_level) > 6:
                 # tier with sub-level do some additional work....
                 top_tier_level = tier_level[-2]
                 sub_level = tier_level[-2:].upper()
