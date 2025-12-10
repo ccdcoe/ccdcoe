@@ -824,8 +824,8 @@ class DeploymentHandler(object):
                             entry += f"_t{team_nr}"
                         host_list.append(entry)
 
-                if top_level_tier_number == windows_tier and "CORE" in tier.upper():
-                    win_host_list_core.append({"host": entry, "actor": host_actor})
+                    if top_level_tier_number == windows_tier and "CORE" in tier.upper():
+                        win_host_list_core.append({"host": entry, "actor": host_actor})
 
             if top_level_tier.upper() in large_tiers:
                 job_tag = self.config.TAG_RUNNER_FAT
