@@ -762,8 +762,14 @@ class DeploymentHandler(object):
 
                 if host_actor.upper() not in actor and any(actor):
                     continue
-                if (any(only_hosts) and host in only_hosts) or (
-                    not any(only_hosts) and host not in skip_hosts
+                if (
+                     (any(only_hosts) and host in only_hosts)
+                    or (
+                        any(only_hosts)
+                        and "||" in host
+                        and host.split("||")[0] in only_hosts
+                    )
+                    or (not any(only_hosts) and host not in skip_hosts)
                 ):
                     # Skip team suffix for standalone tiers
                     add_team_suffix = top_level_tier.upper() not in standalone_tiers
