@@ -755,6 +755,7 @@ class DeploymentHandler(object):
                     }
                 ]
             host_list = []
+            needs_fat_runner = False
             for host in data[tier]:
                 host, host_actor = list(host.items())[0]
                 host = host.strip()
@@ -763,7 +764,7 @@ class DeploymentHandler(object):
                 if host_actor.upper() not in actor and any(actor):
                     continue
                 if (
-                     (any(only_hosts) and host in only_hosts)
+                    (any(only_hosts) and host in only_hosts)
                     or (
                         any(only_hosts)
                         and "||" in host
@@ -778,6 +779,9 @@ class DeploymentHandler(object):
                         team_nr = "{0:02d}".format(int(getenv_str("CICD_TEAM", "28")))
 
                     if "||" in host:
+                        needs_fat_runner = (
+                            True  # set fat runner due to large host count
+                        )
                         hostname, count_str = host.split("||")
                         count = int(count_str)
 
@@ -833,9 +837,8 @@ class DeploymentHandler(object):
                     if top_level_tier_number == windows_tier and "CORE" in tier.upper():
                         win_host_list_core.append({"host": entry, "actor": host_actor})
 
-            if top_level_tier.upper() in large_tiers:
+            if top_level_tier.upper() in large_tiers or needs_fat_runner:
                 job_tag = self.config.TAG_RUNNER_FAT
-
             else:
                 job_tag = self.config.TAG_RUNNER_SLIM
 
