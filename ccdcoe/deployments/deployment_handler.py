@@ -277,7 +277,13 @@ class DeploymentHandler(object):
                 for tl in range(0, len(__UNIQUE_TIERS__)):
                     setattr(the_tier, f"REDEPLOY_TIER{tl}", gitlab_boolean.DISABLED)
                 for i, tier in enumerate(tiers):
-                    top_level_tier = re.sub(r"[a-zA-Z]$", "", tier)
+                    # Extract just the base tier name (e.g., "Tier3" from "Tier3A_CORE")
+                    match = re.search(r"tier\d+", tier, re.IGNORECASE)
+                    if match:
+                        top_level_tier = match.group(0)
+                    else:
+                        # Fallback to original behavior if pattern doesn't match
+                        top_level_tier = re.sub(r"[a-zA-Z_]+$", "", tier)
                     for host in tier_assignments[tier]:
                         if list(host.keys())[0] in only_hosts_list:
                             setattr(
