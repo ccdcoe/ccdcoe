@@ -1067,7 +1067,10 @@ class DeploymentHandler(object):
         if not ignore_deploy_order and not reverse_deploy_order and core_level > 0:
             last_core_job = None
             for job_name, job_config in jobs.items():
-                if job_config["stage"] == "CoreTiers":
+                if (
+                    job_config["stage"] == "CoreTiers"
+                    and job_config["parallel"]["matrix"][0]["HOST"] != []
+                ):
                     last_core_job = job_name
 
             if last_core_job:
