@@ -998,7 +998,10 @@ class DeploymentHandler(object):
             if win_job_name in jobs:
                 last_core_job = None
                 for job_name, job_config in jobs.items():
-                    if job_config["stage"] == "CoreTiers":
+                    if (
+                        job_config["stage"] == "CoreTiers"
+                        and job_config["parallel"]["matrix"][0]["HOST"] != []
+                    ):
                         last_core_job = job_name
 
                 if last_core_job:
