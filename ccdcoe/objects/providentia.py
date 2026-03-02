@@ -30,6 +30,7 @@ class TeamVm:
                 return (
                     f"{getenv_str('PROJECT_VERSION')}_gt"
                     f"_t{self.team_number:02}"
+                    f"_{self.connection_network}"
                     f"_{self.id}"
                 )
             else:
@@ -38,6 +39,7 @@ class TeamVm:
                     vm_list.append(
                         f"{getenv_str('PROJECT_VERSION')}_gt"
                         f"_t{self.team_number:02}"
+                        f"_{self.connection_network}"
                         f"_{self.id}_{i+1:02}"
                     )
                 return vm_list
