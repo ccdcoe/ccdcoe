@@ -28,15 +28,17 @@ class TeamVm:
         if self.actor_id == "gt":
             if self.sequence_total is None:
                 return (
-                    f"{getenv_str('PROJECT_VERSION')}_gt_{self.id}"
+                    f"{getenv_str('PROJECT_VERSION')}_gt"
                     f"_t{self.team_number:02}"
+                    f"_{self.id}"
                 )
             else:
                 vm_list = []
                 for i in range(self.sequence_total):
                     vm_list.append(
-                        f"{getenv_str('PROJECT_VERSION')}_gt_{self.id}_{i+1:02}"
+                        f"{getenv_str('PROJECT_VERSION')}_gt"
                         f"_t{self.team_number:02}"
+                        f"_{self.id}_{i+1:02}"
                     )
                 return vm_list
         else:
@@ -82,14 +84,12 @@ class TeamVm:
         else:
             tier_level = tag_list[0].replace("custom_", "").title()
             if len(tier_level) > 7:
-                    # tier with 2 sub-levels do some additional work....
-                    top_tier_level = tier_level[:4]
-                    sub_level = tier_level[5:7].upper()
-                    second_sub_level = tier_level[8:].upper()
-                    full_tier_level = (
-                        top_tier_level + sub_level + "_" + second_sub_level
-                    )
-                    sub_level = sub_level + "_" + second_sub_level
+                # tier with 2 sub-levels do some additional work....
+                top_tier_level = tier_level[:4]
+                sub_level = tier_level[5:7].upper()
+                second_sub_level = tier_level[8:].upper()
+                full_tier_level = top_tier_level + sub_level + "_" + second_sub_level
+                sub_level = sub_level + "_" + second_sub_level
             elif len(tier_level) > 6:
                 # tier with sub-level do some additional work....
                 top_tier_level = tier_level[-2]
