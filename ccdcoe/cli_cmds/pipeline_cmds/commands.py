@@ -136,6 +136,14 @@ def pipeline_cmd(ctx):
     flag_value="",
     show_default=True,
 )
+@click.option(
+    "--clustered_tiers",
+    help="Comma separated list of job names whose hosts must all be placed in a single job (ignores DEPLOYMENT_SEQUENCE_STEP)",
+    default=None,
+    is_flag=False,
+    flag_value="",
+    show_default=True,
+)
 @click.pass_obj
 def config(
     deployment_handler: DeploymentHandler,
@@ -153,6 +161,7 @@ def config(
     core_level: int = 0,
     nova_version: str = "PRODUCTION",
     windows_tier: str = None,
+    clustered_tiers: str = None,
 ):
     if ignore_deploy_order and reverse_deploy_order:
         deployment_handler.logger.error(
@@ -170,6 +179,10 @@ def config(
         large_tiers = [l.strip().upper() for l in large_tiers.split(",")]
     if standalone_tiers is not None:
         standalone_tiers = [s.strip().upper() for s in standalone_tiers.split(",")]
+    if clustered_tiers is not None and clustered_tiers != "":
+        clustered_tiers = [t.strip() for t in clustered_tiers.split(",") if t.strip()]
+    else:
+        clustered_tiers = None
 
     deployment_handler.logger.info(f"Fetching tier assignment...")
     gitlab_ci_data = deployment_handler.get_gitlab_ci_from_tier_assignment(
@@ -185,6 +198,7 @@ def config(
         core_level=core_level,
         nova_version=nova_version,
         windows_tier=windows_tier,
+        clustered_tiers=clustered_tiers,
     )
     if show:
         ConsoleOutput.print(gitlab_ci_data)

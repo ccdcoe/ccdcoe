@@ -59,6 +59,7 @@ class Config(object):
     )
     TAG_RUNNER_SLIM: str = getenv_str("TAG_RUNNER_SLIM", "docker-deployer-slim")
     TAG_RUNNER_FAT: str = getenv_str("TAG_RUNNER_FAT", "docker-deployer-fat")
+    TAG_RUNNER_MOAD: str = getenv_str("TAG_RUNNER_MOAD", "docker-deployer-moad")
 
     PROVIDENTIA_URL: str = getenv_str(
         "PROVIDENTIA_URL", __MANDATORY_VALUE__, True, config_file_location

@@ -671,6 +671,7 @@ class DeploymentHandler(object):
         core_level: int = 0,
         nova_version: str = "PRODUCTION",
         windows_tier: str = None,
+        clustered_tiers: list[str] = None,
     ) -> dict[str, list]:
 
         if skip_hosts is not None and only_hosts is not None:
@@ -694,6 +695,9 @@ class DeploymentHandler(object):
 
         if standalone_tiers is None:
             standalone_tiers = []
+
+        if clustered_tiers is None:
+            clustered_tiers = []
 
         if windows_tier is None:
             windows_tier = ""
@@ -793,11 +797,11 @@ class DeploymentHandler(object):
 
                         all_hosts = [f"hostname_{i:02}" for i in range(1, count + 1)]
 
+                        is_clustered = job_name in clustered_tiers
+                        step = len(all_hosts) if is_clustered else self.config.DEPLOYMENT_SEQUENCE_STEP
                         grouped = [
-                            all_hosts[i : i + self.config.DEPLOYMENT_SEQUENCE_STEP]
-                            for i in range(
-                                0, len(all_hosts), self.config.DEPLOYMENT_SEQUENCE_STEP
-                            )
+                            all_hosts[i : i + step]
+                            for i in range(0, len(all_hosts), step)
                         ]
 
                         for group in grouped:
@@ -843,7 +847,9 @@ class DeploymentHandler(object):
                     if top_level_tier_number == windows_tier and "CORE" in tier.upper():
                         win_host_list_core.append({"host": entry, "actor": host_actor})
 
-            if top_level_tier.upper() in large_tiers or needs_fat_runner:
+            if job_name in clustered_tiers:
+                job_tag = self.config.TAG_RUNNER_MOAD
+            elif top_level_tier.upper() in large_tiers or needs_fat_runner:
                 job_tag = self.config.TAG_RUNNER_FAT
             else:
                 job_tag = self.config.TAG_RUNNER_SLIM
@@ -1111,6 +1117,7 @@ class DeploymentHandler(object):
         core_level: int = 0,
         nova_version: str = "PRODUCTION",
         windows_tier: str = None,
+        clustered_tiers: list[str] = None,
     ) -> dict[str, list[Any]]:
 
         if not standalone_deployment:
@@ -1134,6 +1141,7 @@ class DeploymentHandler(object):
             core_level=core_level,
             nova_version=nova_version,
             windows_tier=windows_tier,
+            clustered_tiers=clustered_tiers,
         )
 
         return gitlab_ci
