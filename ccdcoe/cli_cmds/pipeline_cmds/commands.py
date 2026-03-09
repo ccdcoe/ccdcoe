@@ -144,6 +144,19 @@ def pipeline_cmd(ctx):
     flag_value="",
     show_default=True,
 )
+@click.option(
+    "--required_tiers",
+    help=(
+        "Comma separated list of tier job names that must not fail. "
+        "All other jobs will have allow_failure: true (warning only). "
+        "Supports exact names ('tier1a') and parent-tier prefixes ('tier1' matches tier1a, tier1b, ...). "
+        "If omitted, all tiers are treated as required (no allow_failure added)."
+    ),
+    default=None,
+    is_flag=False,
+    flag_value="",
+    show_default=True,
+)
 @click.pass_obj
 def config(
     deployment_handler: DeploymentHandler,
@@ -162,6 +175,7 @@ def config(
     nova_version: str = "PRODUCTION",
     windows_tier: str = None,
     clustered_tiers: str = None,
+    required_tiers: str = None,
 ):
     if ignore_deploy_order and reverse_deploy_order:
         deployment_handler.logger.error(
@@ -184,6 +198,13 @@ def config(
     else:
         clustered_tiers = None
 
+    if required_tiers is not None and required_tiers != "":
+        required_tiers = [t.strip().lower() for t in required_tiers.split(",") if t.strip()]
+        if not required_tiers:
+            required_tiers = None
+    else:
+        required_tiers = None
+
     deployment_handler.logger.info(f"Fetching tier assignment...")
     gitlab_ci_data = deployment_handler.get_gitlab_ci_from_tier_assignment(
         skip_hosts=skip_hosts,
@@ -199,6 +220,7 @@ def config(
         nova_version=nova_version,
         windows_tier=windows_tier,
         clustered_tiers=clustered_tiers,
+        required_tiers=required_tiers,
     )
     if show:
         ConsoleOutput.print(gitlab_ci_data)

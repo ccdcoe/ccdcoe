@@ -656,6 +656,32 @@ class DeploymentHandler(object):
 
         return dict(sorted(full_dict.items()))
 
+    # Matches valid suffixes after a tier prefix:
+    # - '' (exact), 'a', 'ab', ... (sublevel letters)
+    # - '_core' (e.g. tier3_core)
+    # - 'a_core', 'ab_core', ... (e.g. tier3a_core, tier3ab_core)
+    _TIER_SUFFIX_RE = re.compile(r'^[a-zA-Z]*(_core)?$')
+
+    @classmethod
+    def _tier_matches_required(cls, job_name: str, required_tiers: list[str]) -> bool:
+        """
+        Return True if job_name is covered by any entry in required_tiers.
+        Supports:
+        - Exact match:          'tier1a'  matches 'tier1a'
+        - Sublevel prefix:      'tier1'   matches 'tier1a', 'tier1b', ...
+        - Core-job prefix:      'tier3'   matches 'tier3a_core'
+        - Exact core match:     'tier3a'  matches 'tier3a_core'
+        Does NOT match digits after the prefix (e.g. 'tier1' does NOT match 'tier10a').
+        """
+        for req in required_tiers:
+            if job_name == req:
+                return True
+            if job_name.startswith(req):
+                suffix = job_name[len(req):]
+                if cls._TIER_SUFFIX_RE.match(suffix) and suffix != "":
+                    return True
+        return False
+
     def generate_gitlab_ci(
         self,
         data: dict[str, list[dict[str, dict[str, Any]]]],
@@ -672,6 +698,7 @@ class DeploymentHandler(object):
         nova_version: str = "PRODUCTION",
         windows_tier: str = None,
         clustered_tiers: list[str] = None,
+        required_tiers: list[str] = None,
     ) -> dict[str, list]:
 
         if skip_hosts is not None and only_hosts is not None:
@@ -698,6 +725,9 @@ class DeploymentHandler(object):
 
         if clustered_tiers is None:
             clustered_tiers = []
+
+        # required_tiers=None = no allow_failure added anywhere (all tiers are required)
+        # required_tiers=['tier1a', ...] = only those tiers are required; all others get allow_failure: true
 
         if windows_tier is None:
             windows_tier = ""
@@ -871,6 +901,11 @@ class DeploymentHandler(object):
                 f"bash /app/deploy.sh $HOST $SKIP_VULNS $DEPLOY_MODE $SNAPSHOT_NAME",
             ]
 
+            job_is_optional = (
+                bool(required_tiers)
+                and not self._tier_matches_required(job_name, required_tiers)
+            )
+
             jobs[job_name] = {
                 "stage": job_stage,
                 "image": docker_image,
@@ -894,6 +929,9 @@ class DeploymentHandler(object):
                     "exit_codes": [1, 137],
                 },
             }
+
+            if job_is_optional:
+                jobs[job_name]["allow_failure"] = True
 
             # Track windows CORE jobs
             if top_level_tier_number == windows_tier and "CORE" in tier.upper():
@@ -992,6 +1030,13 @@ class DeploymentHandler(object):
                     {"HOST": " ".join(win_core_actors[act])} for act in win_core_actors
                 ]
             }
+
+            win_core_is_optional = (
+                bool(required_tiers)
+                and not self._tier_matches_required(job_name, required_tiers)
+            )
+            if win_core_is_optional:
+                jobs[job_name]["allow_failure"] = True
 
         # Add needs for windows core job if core_level is set
         if (
@@ -1118,6 +1163,7 @@ class DeploymentHandler(object):
         nova_version: str = "PRODUCTION",
         windows_tier: str = None,
         clustered_tiers: list[str] = None,
+        required_tiers: list[str] = None,
     ) -> dict[str, list[Any]]:
 
         if not standalone_deployment:
@@ -1142,6 +1188,7 @@ class DeploymentHandler(object):
             nova_version=nova_version,
             windows_tier=windows_tier,
             clustered_tiers=clustered_tiers,
+            required_tiers=required_tiers,
         )
 
         return gitlab_ci

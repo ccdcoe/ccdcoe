@@ -186,6 +186,28 @@ class TestDeploymentHandler:
             k: v().show_bear_level() for (k, v) in __UNIQUE_TIERS__.items()
         }
 
+        # required_tiers: all tiers should have allow_failure when not listed
+        new_gitlab_ci = dh.get_gitlab_ci_from_tier_assignment(
+            required_tiers=["tier2a", "tier3"]
+        )
+        # tier2a is explicitly required
+        assert "allow_failure" not in new_gitlab_ci["tier2a"]
+        # tier2b is not required
+        assert new_gitlab_ci["tier2b"]["allow_failure"] is True
+        # tier3* are covered by the 'tier3' prefix
+        assert "allow_failure" not in new_gitlab_ci["tier3a_core"]
+        assert "allow_failure" not in new_gitlab_ci["tier3b_core"]
+        assert "allow_failure" not in new_gitlab_ci["tier3d"]
+        assert "allow_failure" not in new_gitlab_ci["tier3f"]
+        # tier4+ are not required
+        assert new_gitlab_ci["tier4a"]["allow_failure"] is True
+        assert new_gitlab_ci["tier5a"]["allow_failure"] is True
+
+        # required_tiers=None (default) must not add allow_failure to any job
+        new_gitlab_ci = dh.get_gitlab_ci_from_tier_assignment(required_tiers=None)
+        for key in ["tier2a", "tier2b", "tier3a_core", "tier4a"]:
+            assert "allow_failure" not in new_gitlab_ci[key]
+
         # testing hosts per network
         host_per_network = dh.get_hosts_per_network_providentia()
 
@@ -344,6 +366,36 @@ class TestDeploymentHandler:
                 reference="main", variables=mock_pipeline_vars
             )
 
+    @pytest.mark.parametrize(
+        "job_name, required_tiers, expected",
+        [
+            # --- exact matches ---
+            ("tier1a", ["tier1a"], True),
+            ("tier1b", ["tier1a"], False),
+            # --- parent prefix: sublevel letters ---
+            ("tier1a", ["tier1"], True),
+            ("tier1b", ["tier1"], True),
+            # --- parent prefix: _core jobs ---
+            ("tier3_core", ["tier3"], True),
+            ("tier3a_core", ["tier3"], True),
+            ("tier3ab_core", ["tier3"], True),
+            # --- exact match for _core jobs ---
+            ("tier3a_core", ["tier3a"], True),
+            ("tier3b_core", ["tier3a"], False),
+            # --- must NOT match digit after prefix (e.g. tier1 vs tier10a) ---
+            ("tier10a", ["tier1"], False),
+            ("tier10_core", ["tier1"], False),
+            # --- multiple entries in required list ---
+            ("tier2b", ["tier1", "tier2"], True),
+            ("tier4a", ["tier1", "tier2"], False),
+            # --- empty required list ---
+            ("tier1a", [], False),
+        ],
+    )
+    def test_tier_matches_required(self, job_name, required_tiers, expected):
+        from ccdcoe.deployments.deployment_handler import DeploymentHandler
+
+        assert DeploymentHandler._tier_matches_required(job_name, required_tiers) is expected
     @mock.patch(
         "ccdcoe.deployments.deployment_handler.ProvidentiaApi.environment_networks"
     )
