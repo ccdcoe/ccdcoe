@@ -17,6 +17,7 @@ class TeamVm:
     id: str
     sequence_total: int | None
     connection_network: str
+    egress_networks: list[str]
     tags: list[str]
     owner: str
 
@@ -30,7 +31,7 @@ class TeamVm:
                 return (
                     f"{getenv_str('PROJECT_VERSION')}_gt"
                     f"_t{self.team_number:02}"
-                    f"_{self.connection_network}"
+                    f"_{self.egress_networks[0]}"
                     f"_{self.id}"
                 )
             else:
@@ -39,7 +40,7 @@ class TeamVm:
                     vm_list.append(
                         f"{getenv_str('PROJECT_VERSION')}_gt"
                         f"_t{self.team_number:02}"
-                        f"_{self.connection_network}"
+                        f"_{self.egress_networks[0]}"
                         f"_{self.id}_{i+1:02}"
                     )
                 return vm_list
@@ -47,14 +48,14 @@ class TeamVm:
             if self.sequence_total is None:
                 return (
                     f"{getenv_str('PROJECT_VERSION')}_bt_t{self.team_number:02}"
-                    f"_{self.connection_network}_{self.id}"
+                    f"_{self.egress_networks[0]}_{self.id}"
                 )
             else:
                 vm_list = []
                 for i in range(self.sequence_total):
                     vm_list.append(
                         f"{getenv_str('PROJECT_VERSION')}_bt_t{self.team_number:02}"
-                        f"_{self.connection_network}_{self.id}_{i+1:02}"
+                        f"_{self.egress_networks[0]}_{self.id}_{i+1:02}"
                     )
                 return vm_list
 
@@ -116,6 +117,7 @@ class ProvidentiaHost:
     owner: str
     sequence_total: int | None
     connection_network: str
+    egress_networks: list[str]
     tags: list[str]
 
     def __repr__(self):
@@ -135,6 +137,7 @@ class ProvidentiaHost:
                     id=self.id,
                     sequence_total=self.sequence_total,
                     connection_network=self.connection_network,
+                    egress_networks=self.egress_networks,
                     tags=self.tags,
                     owner=self.owner,
                 )
