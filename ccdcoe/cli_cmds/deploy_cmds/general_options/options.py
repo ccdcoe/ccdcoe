@@ -241,3 +241,13 @@ docker_image_count_option = [
         show_default=True,
     )
 ]
+ansible_extra_vars = [
+    click.option(
+        "--ansible_extra_vars",
+        help="Extra variables to pass to Ansible, in the form of a comma separated list of key=value pairs",
+        default="",
+        is_flag=False,
+        flag_value="",
+        show_default=True,
+    )
+]

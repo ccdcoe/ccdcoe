@@ -18,6 +18,7 @@ from ccdcoe.cli_cmds.deploy_cmds.general_options.options import (
     standalone_tiers_option,
     nova_option,
     docker_image_count_option,
+    ansible_extra_vars,
 )
 from ccdcoe.deployments.deployment_handler import DeploymentHandler
 from ccdcoe.deployments.generic.constants import deploy_modes
@@ -58,6 +59,7 @@ def deploy_cmd(ctx):
 @add_options(standalone_tiers_option)
 @add_options(nova_option)
 @add_options(docker_image_count_option)
+@add_options(ansible_extra_vars)
 @click.pass_obj
 def full(
     deployment_handler: DeploymentHandler,
@@ -81,6 +83,7 @@ def full(
     standalone_tiers: str = "",
     nova_version: str = "PRODUCTION",
     docker_image_count: int = 1,
+    ansible_extra_vars: str="",
 ):
 
     all_tier_data = deployment_handler.get_tier(retrieve_all=True, show_bear_level=True)
@@ -124,6 +127,7 @@ def full(
             standalone_tiers=standalone_tiers,
             nova_version=nova_version,
             docker_image_count=docker_image_count,
+            ansible_extra_vars=ansible_extra_vars,
         )
         deployment_handler.logger.info(f"Full deployment for team: {the_team} started!")
         ConsoleOutput.print(ret_data)
@@ -147,6 +151,7 @@ def full(
 @add_options(standalone_tiers_option)
 @add_options(nova_option)
 @add_options(docker_image_count_option)
+@add_options(ansible_extra_vars)
 @click.option("--show_levels", help="Show available tiers", is_flag=True)
 @click.option("--assignments", help="Show tier assignments", is_flag=True)
 @click.option(
@@ -201,6 +206,7 @@ def tier(
     standalone_tiers: str = "",
     nova_version: str = "PRODUCTION",
     docker_image_count: int = 1,
+    ansible_extra_vars: str="",
 ):
     if show_levels:
         deployment_handler.logger.debug(f"Fetching tiers available for deployment")
@@ -252,6 +258,7 @@ def tier(
                     standalone_tiers=standalone_tiers,
                     nova_version=nova_version,
                     docker_image_count=docker_image_count,
+                    ansible_extra_vars=ansible_extra_vars,
                 )
                 deployment_handler.logger.info(
                     f"Tier deployment for tier number: {level} team: {the_team} started!"
@@ -277,6 +284,7 @@ def tier(
                     standalone_tiers=standalone_tiers,
                     nova_version=nova_version,
                     docker_image_count=docker_image_count,
+                    ansible_extra_vars=ansible_extra_vars,
                 )
                 deployment_handler.logger.info(
                     f"Tier deployment limited to tier number: {limit} team: {the_team} started!"
@@ -294,6 +302,7 @@ def tier(
 @add_options(snapshot_option)
 @add_options(deploy_mode_option)
 @add_options(only_hosts_option)
+@add_options(ansible_extra_vars)
 @click.pass_obj
 def standalone(
     deployment_handler: DeploymentHandler,
@@ -310,6 +319,7 @@ def standalone(
     skip_vulns: bool = False,
     snapshot: bool = False,
     only_hosts: str = "",
+    ansible_extra_vars: str = "",
 ):
     if deploy:
         deployment_mode = deploy_modes.DEPLOY
@@ -340,6 +350,7 @@ def standalone(
         snapshot=snapshot,
         snap_name=snap_name,
         only_hosts=only_hosts,
+        ansible_extra_vars=ansible_extra_vars,
     )
     deployment_handler.logger.info(
         f"Standalone deployment for hosts: {only_hosts} started!"

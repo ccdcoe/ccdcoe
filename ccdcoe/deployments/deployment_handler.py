@@ -258,6 +258,7 @@ class DeploymentHandler(object):
         core_level: int = 0,
         windows_tier: str = "",
         return_pipeline_object: bool = True,
+        ansible_extra_vars: str = "",
     ) -> ProjectPipeline:
 
         self.logger.debug(
@@ -313,6 +314,7 @@ class DeploymentHandler(object):
             tier_data["NOVA_VERSION"] = nova_version
             tier_data["CORE_LEVEL"] = core_level
             tier_data["WINDOWS_TIER"] = windows_tier
+            tier_data["ANSIBLE_EXTRA_VARS"] = ansible_extra_vars
 
             description = f"{deploy_mode.upper()} Team {team_number} - "
 
@@ -340,6 +342,9 @@ class DeploymentHandler(object):
 
             if nova_version == "STAGING":
                 description += f"NOVA_VERSION: STAGING - "
+
+            if ansible_extra_vars != "":
+                description += f"EXTRA_VARS: {ansible_extra_vars} - "
 
             if len(description) >= 255:
                 description = (
@@ -373,6 +378,7 @@ class DeploymentHandler(object):
         snap_name: str = "CLEAN",
         only_hosts: str = "",
         return_pipeline_object: bool = True,
+        ansible_extra_vars: str = "",
     ) -> ProjectPipeline:
 
         self.logger.debug(
@@ -390,6 +396,7 @@ class DeploymentHandler(object):
             tier_data["SNAPSHOT_NAME"] = snap_name
             tier_data["ONLY_HOSTS"] = only_hosts
             tier_data["STANDALONE_DEPLOYMENT"] = gitlab_boolean.ENABLED
+            tier_data["ANSIBLE_EXTRA_VARS"] = ansible_extra_vars
 
             description = f"{deploy_mode.upper()} Standalone - "
 
@@ -398,6 +405,9 @@ class DeploymentHandler(object):
 
             if only_hosts:
                 description += f"LIMITED to hosts: {only_hosts}"
+
+            if ansible_extra_vars != "":
+                description += f"EXTRA_VARS: {ansible_extra_vars} - "
 
             if len(description) >= 255:
                 description = (
@@ -898,7 +908,7 @@ class DeploymentHandler(object):
 
             job_script = [
                 f'echo "Deploying $HOST..."',
-                f"bash /app/deploy.sh $HOST $SKIP_VULNS $DEPLOY_MODE $SNAPSHOT_NAME",
+                f"bash /app/deploy.sh $HOST $SKIP_VULNS $DEPLOY_MODE $SNAPSHOT_NAME $ANSIBLE_EXTRA_VARS",
             ]
 
             job_is_optional = (
@@ -995,7 +1005,7 @@ class DeploymentHandler(object):
 
             job_script = [
                 f'echo "Deploying $HOST..."',
-                f"bash /app/order.sh --skip-vulns $SKIP_VULNS $HOST",
+                f"bash /app/order.sh --skip-vulns $SKIP_VULNS $HOST $ANSIBLE_EXTRA_VARS",
             ]
 
             jobs[job_name] = {

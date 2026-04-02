@@ -44,6 +44,7 @@ class PipelineVars(Validations):
     NOVA_VERSION: str = "PRODUCTION"
     CORE_LEVEL: int = 0
     WINDOWS_TIER: str = ""
+    ANSIBLE_EXTRA_VARS: str = ""
 
     def as_dict(self) -> dict[str, Any]:
         # noinspection PyUnresolvedReferences
@@ -246,3 +247,11 @@ class PipelineVars(Validations):
 
     def validate_REVERSE_DEPLOY_ORDER(self, value: str, **_) -> str:
         return self.check_boolean_string_fields(value, "REVERSE_DEPLOY_ORDER")
+
+    def validate_ANSIBLE_EXTRA_VARS(self, value: str, **_) -> str:
+        if isinstance(value, str):
+            return value
+        else:
+            raise ValueError(
+                f"ANSIBLE_EXTRA_VARS must be a string. NOT of type: {type(value)}"
+            )
