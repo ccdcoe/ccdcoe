@@ -1120,6 +1120,23 @@ class DeploymentHandler(object):
                         }
                     )
 
+                # Also add tier_core to any other non-CORE job whose needs point
+                # to a CORE job (e.g. tier3j depends on tier3d which is a CORE job,
+                # so tier3j should also depend on tier3_core)
+                for jn, jc in jobs.items():
+                    if (
+                        jc["stage"] == f"Tier{windows_tier}"
+                        and jn != win_job_name
+                        and jn not in windows_core_job_names
+                        and jn != first_non_core_win_job
+                        and "needs" in jc
+                        and any(
+                            need["job"] in windows_core_job_names
+                            for need in jc["needs"]
+                        )
+                    ):
+                        jc["needs"].append({"job": win_job_name, "optional": True})
+
         if not ignore_deploy_order and reverse_deploy_order:
             job_keys = list(jobs.keys())
             # Filter out the windows core job since it has different rules and may not exist
