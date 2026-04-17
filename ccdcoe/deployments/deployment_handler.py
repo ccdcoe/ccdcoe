@@ -670,7 +670,7 @@ class DeploymentHandler(object):
     # - '' (exact), 'a', 'ab', ... (sublevel letters)
     # - '_core' (e.g. tier3_core)
     # - 'a_core', 'ab_core', ... (e.g. tier3a_core, tier3ab_core)
-    _TIER_SUFFIX_RE = re.compile(r'^[a-zA-Z]*(_core)?$')
+    _TIER_SUFFIX_RE = re.compile(r"^[a-zA-Z]*(_core)?$")
 
     @classmethod
     def _tier_matches_required(cls, job_name: str, required_tiers: list[str]) -> bool:
@@ -687,7 +687,7 @@ class DeploymentHandler(object):
             if job_name == req:
                 return True
             if job_name.startswith(req):
-                suffix = job_name[len(req):]
+                suffix = job_name[len(req) :]
                 if cls._TIER_SUFFIX_RE.match(suffix) and suffix != "":
                     return True
         return False
@@ -838,7 +838,11 @@ class DeploymentHandler(object):
                         all_hosts = [f"hostname_{i:02}" for i in range(1, count + 1)]
 
                         is_clustered = job_name in clustered_tiers
-                        step = len(all_hosts) if is_clustered else self.config.DEPLOYMENT_SEQUENCE_STEP
+                        step = (
+                            len(all_hosts)
+                            if is_clustered
+                            else self.config.DEPLOYMENT_SEQUENCE_STEP
+                        )
                         grouped = [
                             all_hosts[i : i + step]
                             for i in range(0, len(all_hosts), step)
@@ -911,9 +915,8 @@ class DeploymentHandler(object):
                 f"bash /app/deploy.sh $HOST $SKIP_VULNS $DEPLOY_MODE $SNAPSHOT_NAME $ANSIBLE_EXTRA_VARS",
             ]
 
-            job_is_optional = (
-                bool(required_tiers)
-                and not self._tier_matches_required(job_name, required_tiers)
+            job_is_optional = bool(required_tiers) and not self._tier_matches_required(
+                job_name, required_tiers
             )
 
             jobs[job_name] = {
@@ -952,7 +955,17 @@ class DeploymentHandler(object):
             else:
                 if not reverse_deploy_order and i > 0:
                     my_job_index = list(jobs.keys()).index(job_name)
-                    previous_job = list(jobs.keys())[my_job_index - 1]
+                    job_keys_so_far = list(jobs.keys())
+
+                    previous_job = None
+                    for prev_idx in range(my_job_index - 1, -1, -1):
+                        candidate = job_keys_so_far[prev_idx]
+                        if jobs[candidate]["parallel"]["matrix"][0]["HOST"]:
+                            previous_job = candidate
+                            break
+
+                    if previous_job is None:
+                        continue
 
                     current_job_is_core = job_stage == "CoreTiers"
                     previous_job_is_core = jobs[previous_job]["stage"] == "CoreTiers"
@@ -1041,10 +1054,9 @@ class DeploymentHandler(object):
                 ]
             }
 
-            win_core_is_optional = (
-                bool(required_tiers)
-                and not self._tier_matches_required(job_name, required_tiers)
-            )
+            win_core_is_optional = bool(
+                required_tiers
+            ) and not self._tier_matches_required(job_name, required_tiers)
             if win_core_is_optional:
                 jobs[job_name]["allow_failure"] = True
 
