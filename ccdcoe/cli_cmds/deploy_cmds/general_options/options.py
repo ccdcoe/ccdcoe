@@ -241,13 +241,22 @@ docker_image_count_option = [
         show_default=True,
     )
 ]
-ansible_extra_vars = [
+ansible_extra_vars_option = [
     click.option(
         "--ansible_extra_vars",
         help="Extra variables to pass to Ansible, in the form of a comma separated list of key=value pairs",
         default="",
         is_flag=False,
         flag_value="",
+        show_default=True,
+    )
+]
+dry_run_option = [
+    click.option(
+        "--dry_run",
+        help="Whether to do a dry run of the deployment, i.e. print the tasks that would be executed without actually executing them",
+        is_flag=True,
+        default=False,
         show_default=True,
     )
 ]

@@ -157,6 +157,13 @@ def pipeline_cmd(ctx):
     flag_value="",
     show_default=True,
 )
+@click.option(
+    "--dry_run",
+    help="Whether to do a dry run of the deployment, i.e. print the tasks that would be executed without actually executing them",
+    is_flag=True,
+    default=False,
+    show_default=True,
+)
 @click.pass_obj
 def config(
     deployment_handler: DeploymentHandler,
@@ -176,6 +183,7 @@ def config(
     windows_tier: str = None,
     clustered_tiers: str = None,
     required_tiers: str = None,
+    dry_run: bool = False,
 ):
     if ignore_deploy_order and reverse_deploy_order:
         deployment_handler.logger.error(
@@ -199,7 +207,9 @@ def config(
         clustered_tiers = None
 
     if required_tiers is not None and required_tiers != "":
-        required_tiers = [t.strip().lower() for t in required_tiers.split(",") if t.strip()]
+        required_tiers = [
+            t.strip().lower() for t in required_tiers.split(",") if t.strip()
+        ]
         if not required_tiers:
             required_tiers = None
     else:
@@ -221,6 +231,7 @@ def config(
         windows_tier=windows_tier,
         clustered_tiers=clustered_tiers,
         required_tiers=required_tiers,
+        dry_run=dry_run,
     )
     if show:
         ConsoleOutput.print(gitlab_ci_data)

@@ -45,6 +45,7 @@ class PipelineVars(Validations):
     CORE_LEVEL: int = 0
     WINDOWS_TIER: str = ""
     ANSIBLE_EXTRA_VARS: str = ""
+    DRY_RUN: str = gitlab_boolean.DISABLED
 
     def as_dict(self) -> dict[str, Any]:
         # noinspection PyUnresolvedReferences
@@ -247,6 +248,9 @@ class PipelineVars(Validations):
 
     def validate_REVERSE_DEPLOY_ORDER(self, value: str, **_) -> str:
         return self.check_boolean_string_fields(value, "REVERSE_DEPLOY_ORDER")
+    
+    def validate_DRY_RUN(self, value: str, **_) -> str:
+        return self.check_boolean_string_fields(value, "DRY_RUN")
 
     def validate_ANSIBLE_EXTRA_VARS(self, value: str, **_) -> str:
         if isinstance(value, str):

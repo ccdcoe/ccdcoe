@@ -259,6 +259,7 @@ class DeploymentHandler(object):
         windows_tier: str = "",
         return_pipeline_object: bool = True,
         ansible_extra_vars: str = "",
+        dry_run: bool = False,
     ) -> ProjectPipeline:
 
         self.logger.debug(
@@ -315,8 +316,12 @@ class DeploymentHandler(object):
             tier_data["CORE_LEVEL"] = core_level
             tier_data["WINDOWS_TIER"] = windows_tier
             tier_data["ANSIBLE_EXTRA_VARS"] = ansible_extra_vars
+            tier_data["DRY_RUN"] = dry_run
 
-            description = f"{deploy_mode.upper()} Team {team_number} - "
+            if dry_run:
+                description = f"DRY RUN {deploy_mode.upper()} Team {team_number} - "
+            else:
+                description = f"{deploy_mode.upper()} Team {team_number} - "
 
             if deploy_full_tier:
                 if start_tier_level == 0:
@@ -692,6 +697,44 @@ class DeploymentHandler(object):
                     return True
         return False
 
+    @staticmethod
+    def _build_deploy_script() -> list[str]:
+        return [
+            'echo "--- Deploy job variables ---"',
+            'echo "HOST:              $HOST"',
+            'echo "DEPLOY_MODE:       $DEPLOY_MODE"',
+            'echo "SKIP_VULNS:        $SKIP_VULNS"',
+            'echo "SNAPSHOT:          $SNAPSHOT"',
+            'echo "SNAPSHOT_NAME:     $SNAPSHOT_NAME"',
+            'echo "ANSIBLE_EXTRA_VARS:$ANSIBLE_EXTRA_VARS"',
+            'echo "DRY_RUN:           $DRY_RUN"',
+            'echo "----------------------------"',
+            "bash /app/deploy.sh"
+            ' --host "$HOST"'
+            ' --mode "$DEPLOY_MODE"'
+            ' --skip-vulns "$SKIP_VULNS"'
+            ' --snapshot "$SNAPSHOT"'
+            ' --snapshot-name "$SNAPSHOT_NAME"'
+            ' --extra-vars "$ANSIBLE_EXTRA_VARS"'
+            ' --dry-run "$DRY_RUN"',
+        ]
+
+    @staticmethod
+    def _build_order_script() -> list[str]:
+        return [
+            'echo "--- Order job variables ---"',
+            'echo "HOST:              $HOST"',
+            'echo "SKIP_VULNS:        $SKIP_VULNS"',
+            'echo "ANSIBLE_EXTRA_VARS:$ANSIBLE_EXTRA_VARS"',
+            'echo "DRY_RUN:           $DRY_RUN"',
+            'echo "----------------------------"',
+            "bash /app/order.sh"
+            ' --host "$HOST"'
+            ' --skip-vulns "$SKIP_VULNS"'
+            ' --extra-vars "$ANSIBLE_EXTRA_VARS"'
+            ' --dry-run "$DRY_RUN"',
+        ]
+
     def generate_gitlab_ci(
         self,
         data: dict[str, list[dict[str, dict[str, Any]]]],
@@ -709,6 +752,7 @@ class DeploymentHandler(object):
         windows_tier: str = None,
         clustered_tiers: list[str] = None,
         required_tiers: list[str] = None,
+        dry_run: bool = False,
     ) -> dict[str, list]:
 
         if skip_hosts is not None and only_hosts is not None:
@@ -910,10 +954,7 @@ class DeploymentHandler(object):
                 else "CoreTiers"
             )
 
-            job_script = [
-                f'echo "Deploying $HOST..."',
-                f"bash /app/deploy.sh $HOST $SKIP_VULNS $DEPLOY_MODE $SNAPSHOT_NAME $ANSIBLE_EXTRA_VARS",
-            ]
+            job_script = self._build_deploy_script()
 
             job_is_optional = bool(required_tiers) and not self._tier_matches_required(
                 job_name, required_tiers
@@ -1016,10 +1057,7 @@ class DeploymentHandler(object):
             else:
                 job_tag = self.config.TAG_RUNNER_SLIM
 
-            job_script = [
-                f'echo "Deploying $HOST..."',
-                f"bash /app/order.sh --skip-vulns $SKIP_VULNS $HOST $ANSIBLE_EXTRA_VARS",
-            ]
+            job_script = self._build_order_script()
 
             jobs[job_name] = {
                 "stage": f"Tier{windows_tier}",
@@ -1203,6 +1241,7 @@ class DeploymentHandler(object):
         windows_tier: str = None,
         clustered_tiers: list[str] = None,
         required_tiers: list[str] = None,
+        dry_run: bool = False,
     ) -> dict[str, list[Any]]:
 
         if not standalone_deployment:
@@ -1228,6 +1267,7 @@ class DeploymentHandler(object):
             windows_tier=windows_tier,
             clustered_tiers=clustered_tiers,
             required_tiers=required_tiers,
+            dry_run=dry_run,
         )
 
         return gitlab_ci
