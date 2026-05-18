@@ -155,6 +155,7 @@ def full(
 @add_options(nova_option)
 @add_options(docker_image_count_option)
 @add_options(ansible_extra_vars_option)
+@add_options(dry_run_option)
 @click.option("--show_levels", help="Show available tiers", is_flag=True)
 @click.option("--assignments", help="Show tier assignments", is_flag=True)
 @click.option(
