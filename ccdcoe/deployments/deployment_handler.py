@@ -700,15 +700,15 @@ class DeploymentHandler(object):
     @staticmethod
     def _build_deploy_script() -> list[str]:
         return [
-            'echo "--- Deploy job variables ---"',
-            'echo "HOST:              $HOST"',
-            'echo "DEPLOY_MODE:       $DEPLOY_MODE"',
-            'echo "SKIP_VULNS:        $SKIP_VULNS"',
-            'echo "SNAPSHOT:          $SNAPSHOT"',
-            'echo "SNAPSHOT_NAME:     $SNAPSHOT_NAME"',
-            'echo "ANSIBLE_EXTRA_VARS:$ANSIBLE_EXTRA_VARS"',
-            'echo "DRY_RUN:           $DRY_RUN"',
-            'echo "----------------------------"',
+            r'printf "\e[1m\e[36m--- Deploy job variables ---\n'
+            r"HOST:                 $HOST\n"
+            r"DEPLOY_MODE:          $DEPLOY_MODE\n"
+            r"SKIP_VULNS:           $SKIP_VULNS\n"
+            r"SNAPSHOT:             $SNAPSHOT\n"
+            r"SNAPSHOT_NAME:        $SNAPSHOT_NAME\n"
+            r"ANSIBLE_EXTRA_VARS:   $ANSIBLE_EXTRA_VARS\n"
+            r"DRY_RUN:              $DRY_RUN\n"
+            r'----------------------------\n\e[0m"',
             "bash /app/deploy.sh"
             ' --host "$HOST"'
             ' --mode "$DEPLOY_MODE"'
@@ -722,12 +722,12 @@ class DeploymentHandler(object):
     @staticmethod
     def _build_order_script() -> list[str]:
         return [
-            'echo "--- Order job variables ---"',
-            'echo "HOST:              $HOST"',
-            'echo "SKIP_VULNS:        $SKIP_VULNS"',
-            'echo "ANSIBLE_EXTRA_VARS:$ANSIBLE_EXTRA_VARS"',
-            'echo "DRY_RUN:           $DRY_RUN"',
-            'echo "----------------------------"',
+            r'printf "\e[1m\e[36m--- Order job variables ---\n'
+            r"HOST:                 $HOST"
+            r"SKIP_VULNS:           $SKIP_VULNS"
+            r"ANSIBLE_EXTRA_VARS:   $ANSIBLE_EXTRA_VARS"
+            r"DRY_RUN:              $DRY_RUN"
+            r'----------------------------\n\e[0m"',
             "bash /app/order.sh"
             ' --host "$HOST"'
             ' --skip-vulns "$SKIP_VULNS"'
