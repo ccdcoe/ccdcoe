@@ -113,10 +113,19 @@ class TestDeploymentHandler:
         # testing output against test_data
         assert tier_data == get_tier_assignments_providentia
 
-        gitlab_ci = dh.get_gitlab_ci_from_tier_assignment()
+        result_gitlab_ci = dh.get_gitlab_ci_from_tier_assignment()
 
-        # testing output against test_data
-        assert gitlab_ci == gitlab_ci
+        # verify the default output has the expected stages and job names
+        assert result_gitlab_ci["stages"] == [
+            "Tier2", "Tier3", "Tier4", "Tier5", "Tier6", "Tier7", "Tier8", "Tier9"
+        ]
+        expected_jobs = [
+            "tier2a", "tier2b",
+            "tier3a_core", "tier3b_core", "tier3c_core", "tier3d", "tier3e", "tier3f",
+            "tier4a", "tier4b", "tier5a", "tier5b",
+            "tier6a", "tier7a", "tier8a", "tier9a",
+        ]
+        assert [k for k in result_gitlab_ci if k != "stages"] == expected_jobs
 
         with catch_logs(level=logging.DEBUG, logger=dh.logger) as handler:
             # creating new gitlab_ci with different settings
@@ -139,6 +148,41 @@ class TestDeploymentHandler:
         assert "needs" not in new_gitlab_ci["tier4a"]
         assert "CoreTiers" not in new_gitlab_ci["stages"]
 
+        # --- deploy.sh is the last script entry in standard jobs ---
+        default_gitlab_ci = dh.get_gitlab_ci_from_tier_assignment()
+        assert "deploy.sh" in default_gitlab_ci["tier2a"]["script"][-1]
+
+        # --- forward needs wiring: same-stage jobs chain sequentially ---
+        assert default_gitlab_ci["tier2b"]["needs"][0]["job"] == "tier2a"
+        assert default_gitlab_ci["tier3b_core"]["needs"][0]["job"] == "tier3a_core"
+        assert default_gitlab_ci["tier4b"]["needs"][0]["job"] == "tier4a"
+
+        # --- runner tags: slim by default, fat/moad via large_tiers/clustered_tiers ---
+        assert default_gitlab_ci["tier2a"]["tags"][0] is dh.config.TAG_RUNNER_SLIM
+        ci_large = dh.get_gitlab_ci_from_tier_assignment(large_tiers=["TIER3"])
+        assert ci_large["tier3f"]["tags"][0] is dh.config.TAG_RUNNER_FAT
+        ci_clustered = dh.get_gitlab_ci_from_tier_assignment(clustered_tiers=["tier3f"])
+        assert ci_clustered["tier3f"]["tags"][0] is dh.config.TAG_RUNNER_MOAD
+
+        # --- skip_hosts: named host removed from matrix (raw name without team suffix) ---
+        ci_skip = dh.get_gitlab_ci_from_tier_assignment(skip_hosts=["fw1-grp1"])
+        assert "fw1-grp1_t28" not in ci_skip["tier2a"]["parallel"]["matrix"][0]["HOST"]
+        assert "fw1-grp2_t28" in ci_skip["tier2a"]["parallel"]["matrix"][0]["HOST"]
+
+        # --- only_hosts in a regular (non-standalone) deployment ---
+        ci_only = dh.get_gitlab_ci_from_tier_assignment(only_hosts=["fw1-grp1"])
+        assert ci_only["tier2a"]["parallel"]["matrix"][0]["HOST"] == ["fw1-grp1_t28"]
+        assert ci_only["tier2b"]["parallel"]["matrix"][0]["HOST"] == []
+
+        # --- actor filtering: only hosts belonging to the given actor are included ---
+        # actor comparison is uppercase, matching host_actor.upper()
+        ci_actor = dh.get_gitlab_ci_from_tier_assignment(actor=["GRP1"])
+        assert "fw1-grp1_t28" in ci_actor["tier2a"]["parallel"]["matrix"][0]["HOST"]
+        assert "fw1-grp2_t28" not in ci_actor["tier2a"]["parallel"]["matrix"][0]["HOST"]
+        assert "dc1-grp1_t28" in ci_actor["tier3a_core"]["parallel"]["matrix"][0]["HOST"]
+        # tier6a only has a 'gt' actor host — should be excluded
+        assert ci_actor["tier6a"]["parallel"]["matrix"][0]["HOST"] == []
+
         new_gitlab_ci = dh.get_gitlab_ci_from_tier_assignment(
             only_hosts=["test2"], standalone_deployment=True
         )
@@ -149,13 +193,33 @@ class TestDeploymentHandler:
         assert new_gitlab_ci["stages"][0] == "CoreTiers"
         assert new_gitlab_ci["stages"][1] == "Tier3"
 
+        # --- core_level + reverse_deploy_order: CoreTiers stage appears last ---
+        ci_core_rev = dh.get_gitlab_ci_from_tier_assignment(core_level=2, reverse_deploy_order=True)
+        assert ci_core_rev["stages"][-1] == "CoreTiers"
+        assert ci_core_rev["stages"][0] == "Tier9"
+
+        # --- reverse_deploy_order: each job needs the next one, last job has no needs ---
+        ci_rev = dh.get_gitlab_ci_from_tier_assignment(reverse_deploy_order=True)
+        assert ci_rev["tier2a"]["needs"][0]["job"] == "tier2b"
+        assert ci_rev["tier2b"]["needs"][0]["job"] == "tier3a_core"
+        assert "needs" not in ci_rev["tier9a"]
+
         new_gitlab_ci = dh.get_gitlab_ci_from_tier_assignment(
             core_level=2, windows_tier=3
         )
         assert new_gitlab_ci["stages"][0] == "CoreTiers"
-        assert "order.sh" in new_gitlab_ci["tier3_core"]["script"][1]
+        assert "order.sh" in new_gitlab_ci["tier3_core"]["script"][-1]
         assert new_gitlab_ci["tier3_core"]["needs"][0]["job"] == "tier2b"
         assert "dc1-grp1_t28 mail-grp1_t28 dc2-grp1_t28" in new_gitlab_ci["tier3_core"]["parallel"]["matrix"][1]["HOST"]
+
+        # --- windows _core + required_tiers: tier3_core listed → no allow_failure;
+        #     tier2a listed → no allow_failure; tier2b not listed → allow_failure ---
+        ci_win_req = dh.get_gitlab_ci_from_tier_assignment(
+            core_level=2, windows_tier=3, required_tiers=["tier2a", "tier3_core"]
+        )
+        assert "allow_failure" not in ci_win_req["tier3_core"]
+        assert "allow_failure" not in ci_win_req["tier2a"]
+        assert ci_win_req["tier2b"]["allow_failure"] is True
 
         with catch_logs(level=logging.DEBUG, logger=dh.logger) as handler:
             # creating new gitlab_ci with different settings
@@ -207,6 +271,44 @@ class TestDeploymentHandler:
         new_gitlab_ci = dh.get_gitlab_ci_from_tier_assignment(required_tiers=None)
         for key in ["tier2a", "tier2b", "tier3a_core", "tier4a"]:
             assert "allow_failure" not in new_gitlab_ci[key]
+
+        # --- §4 windows needs wiring (core_level=2): tier3d gets needs for tier3_core ---
+        ci_win_core = dh.get_gitlab_ci_from_tier_assignment(core_level=2, windows_tier=3)
+        tier3d_needs_jobs = [n["job"] for n in ci_win_core["tier3d"].get("needs", [])]
+        assert "tier3_core" in tier3d_needs_jobs
+        assert "tier3c" in tier3d_needs_jobs  # chained from _wire_in_loop_needs
+
+        # --- windows_tier without core_level: tier3_core job is in stage Tier3 ---
+        ci_win_no_core = dh.get_gitlab_ci_from_tier_assignment(windows_tier=3)
+        assert "tier3_core" in ci_win_no_core
+        assert ci_win_no_core["tier3_core"]["stage"] == "Tier3"
+        assert "CoreTiers" not in ci_win_no_core["stages"]
+        # tier3d should need tier3c (inline) and tier3_core (§4 post-loop)
+        tier3d_needs_no_core = [n["job"] for n in ci_win_no_core["tier3d"].get("needs", [])]
+        assert "tier3_core" in tier3d_needs_no_core
+        assert "tier3c" in tier3d_needs_no_core
+
+        # --- docker_image_count + nova_version: image URL uses chosen count and env ---
+        import random
+        random.seed(42)
+        ci_img = dh.get_gitlab_ci_from_tier_assignment(docker_image_count=3, nova_version="STAGING")
+        assert "staging" in ci_img["tier2a"]["image"].lower()
+        assert dh.config.NEXUS_HOST in ci_img["tier2a"]["image"]
+
+        # --- dry_run=True: each job gets variables.DRY_RUN == "true" ---
+        ci_dry = dh.get_gitlab_ci_from_tier_assignment(dry_run=True)
+        assert ci_dry["tier2a"].get("variables", {}).get("DRY_RUN") == "true"
+        assert ci_dry["tier9a"].get("variables", {}).get("DRY_RUN") == "true"
+        # dry_run=False (default) must NOT add variables key
+        assert "variables" not in default_gitlab_ci["tier2a"]
+
+        # --- skip_hosts on a sequenced host: host_base is matched before || suffix ---
+        ci_skip_seq = dh.get_gitlab_ci_from_tier_assignment(skip_hosts=["ws1-grp3"])
+        tier3f_all_hosts = ci_skip_seq["tier3f"]["parallel"]["matrix"][0]["HOST"]
+        assert not any("ws1-grp3" in h for h in tier3f_all_hosts), (
+            "sequenced host ws1-grp3 should have been removed by skip_hosts"
+        )
+        assert any("ws2-grp1" in h for h in tier3f_all_hosts)
 
         # testing hosts per network
         host_per_network = dh.get_hosts_per_network_providentia()

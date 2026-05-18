@@ -735,6 +735,490 @@ class DeploymentHandler(object):
             ' --dry-run "$DRY_RUN"',
         ]
 
+    # generate_gitlab_ci — helpers
+    @dataclass
+    class _CIGenerateOpts:
+        """Normalised options bag passed between generate_gitlab_ci helpers."""
+
+        skip_hosts: list
+        only_hosts: list
+        actor: list
+        large_tiers: list
+        standalone_tiers: list
+        clustered_tiers: list
+        required_tiers: list | None
+        ignore_deploy_order: bool
+        reverse_deploy_order: bool
+        docker_image_count: int
+        standalone_deployment: bool
+        core_level: int
+        nova_version: str
+        windows_tier: str
+        dry_run: bool
+
+    def _normalize_generate_inputs(
+        self,
+        skip_hosts,
+        only_hosts,
+        actor,
+        large_tiers,
+        standalone_tiers,
+        clustered_tiers,
+        required_tiers,
+        ignore_deploy_order,
+        reverse_deploy_order,
+        docker_image_count,
+        standalone_deployment,
+        core_level,
+        nova_version,
+        windows_tier,
+        dry_run,
+    ) -> "_CIGenerateOpts":
+        """Validate and normalise raw arguments into a _CIGenerateOpts instance."""
+        if skip_hosts is not None and only_hosts is not None:
+            if any(skip_hosts) and any(only_hosts):
+                self.logger.warning(
+                    "Warning: Both --skip_hosts and --only_hosts provided; --only_hosts takes precedence"
+                )
+                skip_hosts = []  # only_hosts takes precedence
+
+        return self._CIGenerateOpts(
+            skip_hosts=skip_hosts or [],
+            only_hosts=only_hosts or [],
+            actor=actor or [],
+            large_tiers=large_tiers or [],
+            standalone_tiers=standalone_tiers or [],
+            clustered_tiers=clustered_tiers or [],
+            required_tiers=required_tiers,
+            ignore_deploy_order=ignore_deploy_order,
+            reverse_deploy_order=reverse_deploy_order,
+            docker_image_count=docker_image_count,
+            standalone_deployment=standalone_deployment,
+            core_level=core_level,
+            nova_version=nova_version,
+            windows_tier="" if windows_tier is None else str(windows_tier),
+            dry_run=dry_run,
+        )
+
+    @staticmethod
+    def _compute_stages(
+        data: dict, core_level: int, reverse_deploy_order: bool
+    ) -> list[str]:
+        """Derive the ordered list of GitLab CI stage names."""
+        tiers = list(data.keys())
+        top_level_tiers = list(set(re.sub(r"[a-zA-Z_]*$", "", tier) for tier in tiers))
+        top_level_tiers.sort(key=lambda x: int(re.search(r"\d+", x).group()))
+
+        if core_level > 0:
+            non_core_tiers = [
+                tier
+                for tier in top_level_tiers
+                if int(re.sub(r"\D", "", tier)) > core_level
+            ]
+            if reverse_deploy_order:
+                non_core_tiers.reverse()
+                return non_core_tiers + ["CoreTiers"]
+            return ["CoreTiers"] + non_core_tiers
+
+        stages = top_level_tiers
+        if reverse_deploy_order:
+            stages.reverse()
+        return stages
+
+    def _build_host_list(
+        self,
+        data: dict,
+        tier: str,
+        job_name: str,
+        top_level_tier: str,
+        top_level_tier_number: str,
+        opts: "_CIGenerateOpts",
+    ) -> tuple[list[str], list[dict], bool]:
+        """
+        Iterate over the hosts in a tier and produce:
+          - host_list:  the flat list of host patterns for the CI matrix
+          - win_entries: any Windows-core host entries collected for later
+          - needs_fat_runner: True when a sequenced host expanded the list
+        """
+        host_list: list[str] = []
+        win_entries: list[dict] = []
+        needs_fat_runner = False
+
+        is_win_core_tier = (
+            top_level_tier_number == opts.windows_tier and "CORE" in tier.upper()
+        )
+
+        for host_entry in data[tier]:
+            host, host_actor_dict = list(host_entry.items())[0]
+            host = host.strip()
+            host_actor = host_actor_dict["actor"].strip()
+
+            if host_actor.upper() not in opts.actor and any(opts.actor):
+                continue
+
+            in_only = (any(opts.only_hosts) and host in opts.only_hosts) or (
+                any(opts.only_hosts)
+                and "||" in host
+                and host.split("||")[0] in opts.only_hosts
+            )
+            host_base = host.split("||")[0] if "||" in host else host
+            in_default = not any(opts.only_hosts) and host_base not in opts.skip_hosts
+            if not (in_only or in_default):
+                continue
+
+            add_team_suffix = top_level_tier.upper() not in opts.standalone_tiers
+            team_nr = (
+                "{0:02d}".format(int(getenv_str("CICD_TEAM", "28")))
+                if add_team_suffix
+                else ""
+            )
+
+            if "||" in host:
+                needs_fat_runner = True
+                hostname, count_str = host.split("||")
+                count = int(count_str)
+                all_hosts = [f"hostname_{idx:02}" for idx in range(1, count + 1)]
+
+                is_clustered = job_name in opts.clustered_tiers
+                step = (
+                    len(all_hosts)
+                    if is_clustered
+                    else self.config.DEPLOYMENT_SEQUENCE_STEP
+                )
+                grouped = [
+                    all_hosts[i : i + step] for i in range(0, len(all_hosts), step)
+                ]
+
+                for group in grouped:
+                    numbers = [int(x.split("_")[-1]) for x in group]
+
+                    tens_groups: dict = defaultdict(list)
+                    for n in numbers:
+                        tens_groups[n // 10].append(n)
+
+                    group_patterns = []
+                    for _, nums in sorted(tens_groups.items()):
+                        nums.sort()
+                        if len(nums) == 1:
+                            group_patterns.append(f"{nums[0]:02}")
+                        else:
+                            start, end = nums[0], nums[-1]
+                            if start // 10 == end // 10:
+                                group_patterns.append(
+                                    f"0[{start % 10}-{end % 10}]"
+                                    if start < 10
+                                    else f"{start // 10}[{start % 10}-{end % 10}]"
+                                )
+                            else:
+                                group_patterns.append("|".join(f"{n:02}" for n in nums))
+
+                    pattern = (
+                        group_patterns[0]
+                        if len(group_patterns) == 1
+                        else "(" + "|".join(group_patterns) + ")"
+                    )
+                    entry = f"{hostname}_{pattern}"
+                    if add_team_suffix:
+                        entry += f"_t{team_nr}"
+                    host_list.append(entry)
+            else:
+                entry = host
+                if add_team_suffix:
+                    entry += f"_t{team_nr}"
+                host_list.append(entry)
+
+            if is_win_core_tier:
+                win_entries.append({"host": entry, "actor": host_actor})
+
+        return host_list, win_entries, needs_fat_runner
+
+    def _select_runner_tag(
+        self,
+        job_name: str,
+        top_level_tier: str,
+        needs_fat_runner: bool,
+        opts: "_CIGenerateOpts",
+    ) -> str:
+        """Pick the appropriate GitLab runner tag for a job."""
+        if job_name in opts.clustered_tiers:
+            return self.config.TAG_RUNNER_MOAD
+        if top_level_tier.upper() in opts.large_tiers or needs_fat_runner:
+            return self.config.TAG_RUNNER_FAT
+        return self.config.TAG_RUNNER_SLIM
+
+    def _select_docker_image(self, opts: "_CIGenerateOpts") -> str:
+        """Pick (and randomly load-balance) the executor Docker image."""
+        if opts.docker_image_count >= 1:
+            n = random.randint(1, opts.docker_image_count)
+            return (
+                f"{self.config.NEXUS_HOST}/{self.config.PROJECT_VERSION}"
+                f"-cicd-image-{n}-{opts.nova_version.lower()}:latest"
+            )
+        return self.config.EXECUTOR_DOCKER_IMAGE
+
+    def _build_deploy_job(
+        self,
+        job_name: str,
+        job_stage: str,
+        docker_image: str,
+        job_tag: str,
+        deploy_rule: list,
+        host_list: list[str],
+        required_tiers: list[str] | None,
+        dry_run: bool = False,
+    ) -> dict:
+        """Assemble the full job dict for a standard deploy job."""
+        job: dict = {
+            "stage": job_stage,
+            "image": docker_image,
+            "tags": [job_tag],
+            "before_script": [
+                "sudo bash /app/move_needed_files.sh",
+                'echo "$VAULT_PASS" >> /app/.vault_pass',
+            ],
+            "rules": deploy_rule,
+            "script": self._build_deploy_script(),
+            "parallel": {"matrix": [{"HOST": host_list}]},
+            "dependencies": [],  # no artifacts needed
+            "retry": {
+                "max": 2,
+                "when": [
+                    "runner_system_failure",
+                    "stuck_or_timeout_failure",
+                    "script_failure",
+                    "api_failure",
+                ],
+                "exit_codes": [1, 137],
+            },
+        }
+        if dry_run:
+            job["variables"] = {"DRY_RUN": "true"}
+        if bool(required_tiers) and not self._tier_matches_required(
+            job_name, required_tiers
+        ):
+            job["allow_failure"] = True
+        return job
+
+    def _wire_in_loop_needs(
+        self,
+        jobs: dict,
+        job_name: str,
+        job_stage: str,
+        loop_index: int,
+    ) -> None:
+        """Wire sequential `needs` for a job during the main tier loop (forward order only)."""
+        if loop_index == 0:
+            return
+
+        my_job_index = list(jobs.keys()).index(job_name)
+        job_keys_so_far = list(jobs.keys())
+
+        previous_job = None
+        for prev_idx in range(my_job_index - 1, -1, -1):
+            candidate = job_keys_so_far[prev_idx]
+            if jobs[candidate]["parallel"]["matrix"][0]["HOST"]:
+                previous_job = candidate
+                break
+
+        if previous_job is None:
+            return
+
+        current_is_core = job_stage == "CoreTiers"
+        previous_is_core = jobs[previous_job]["stage"] == "CoreTiers"
+
+        if (
+            current_is_core
+            and previous_is_core
+            or not current_is_core
+            and previous_is_core
+        ):
+            jobs[job_name]["needs"] = [
+                {
+                    "job": previous_job,
+                    "optional": True,
+                }
+            ]
+        elif (
+            not current_is_core
+            and not previous_is_core
+            and job_stage == jobs[previous_job]["stage"]
+        ):
+            jobs[job_name]["needs"] = [{"job": previous_job, "optional": True}]
+
+    def _build_windows_core_jobs(
+        self,
+        win_host_list_core: list[dict],
+        docker_image: str,
+        opts: "_CIGenerateOpts",
+    ) -> dict:
+        """Build and return the Windows _core order job dict (empty dict if not applicable)."""
+        if not opts.windows_tier:
+            return {}
+        if not win_host_list_core:
+            self.logger.warning(
+                f"Tier {opts.windows_tier} defined as Windows tier, but no Windows core "
+                f"hosts found, check your tier assignments"
+            )
+            return {}
+
+        win_core_actors: dict = defaultdict(list)
+        for entry in win_host_list_core:
+            win_core_actors[entry["actor"]].append(entry["host"])
+        for act in win_core_actors:
+            self.logger.debug(
+                f"Windows Core Hosts to be deployed for actor {act}: {win_core_actors[act]}"
+            )
+
+        job_name = f"tier{opts.windows_tier}_core"
+        job_tag = (
+            self.config.TAG_RUNNER_FAT
+            if f"TIER{opts.windows_tier}" in opts.large_tiers
+            else self.config.TAG_RUNNER_SLIM
+        )
+
+        job: dict = {
+            "stage": f"Tier{opts.windows_tier}",
+            "image": docker_image,
+            "tags": [job_tag],
+            "before_script": [
+                "sudo bash /app/move_needed_files.sh",
+                'echo "$VAULT_PASS" >> /app/.vault_pass',
+            ],
+            "rules": [
+                {
+                    "if": (
+                        f'$REDEPLOY_TIER{opts.windows_tier} == "true"'
+                        f' && ($DEPLOY_MODE == "redeploy" || $DEPLOY_MODE == "deploy")'
+                    ),
+                    "when": "on_success",
+                }
+            ],
+            "script": self._build_order_script(),
+            "dependencies": [],  # no artifacts needed
+            "retry": {
+                "max": 2,
+                "when": [
+                    "runner_system_failure",
+                    "stuck_or_timeout_failure",
+                    "script_failure",
+                    "api_failure",
+                ],
+                "exit_codes": [1, 137],
+            },
+            "parallel": {
+                "matrix": [
+                    {"HOST": " ".join(win_core_actors[act])} for act in win_core_actors
+                ]
+            },
+        }
+        if opts.dry_run:
+            job["variables"] = {"DRY_RUN": "true"}
+        if bool(opts.required_tiers) and not self._tier_matches_required(
+            job_name, opts.required_tiers
+        ):
+            job["allow_failure"] = True
+
+        return {job_name: job}
+
+    def _wire_post_loop_needs(
+        self,
+        jobs: dict,
+        opts: "_CIGenerateOpts",
+        windows_core_job_names: list[str],
+    ) -> None:
+        """
+        Wire all post-loop `needs` relationships:
+          1. Reverse order  — each job needs the next one
+          2. Core-level     — first non-core job of each stage needs the last core job
+          3. Windows _core  — windows core job needs the last core job
+          4. Non-core win   — first non-core windows job needs the windows _core job
+        """
+        win_job_name = f"tier{opts.windows_tier}_core" if opts.windows_tier else None
+
+        # 1. Reverse deploy order — mutually exclusive with everything else
+        if not opts.ignore_deploy_order and opts.reverse_deploy_order:
+            job_keys = [k for k in jobs if k != win_job_name]
+            for idx, job_key in enumerate(job_keys):
+                if idx < len(job_keys) - 1:
+                    jobs[job_key]["needs"] = [
+                        {"job": job_keys[idx + 1], "optional": True}
+                    ]
+            return
+
+        if opts.ignore_deploy_order:
+            return
+
+        # 2. Forward order with core_level: wire first non-core job per stage to last core job
+        if opts.core_level > 0:
+            last_core_job = next(
+                (
+                    jn
+                    for jn, jc in reversed(list(jobs.items()))
+                    if jc["stage"] == "CoreTiers"
+                    and jc["parallel"]["matrix"][0]["HOST"]
+                ),
+                None,
+            )
+            if last_core_job:
+                non_core_first: dict[str, str] = {}
+                for jn, jc in jobs.items():
+                    stage = jc["stage"]
+                    if stage != "CoreTiers" and stage not in non_core_first:
+                        non_core_first[stage] = jn
+                for first_job in non_core_first.values():
+                    jobs[first_job].setdefault(
+                        "needs", [{"job": last_core_job, "optional": True}]
+                    )
+
+        # 3. Windows _core job needs the last core job
+        if opts.core_level > 0 and win_job_name and win_job_name in jobs:
+            last_core_job = next(
+                (
+                    jn
+                    for jn, jc in reversed(list(jobs.items()))
+                    if jc["stage"] == "CoreTiers"
+                    and jc["parallel"]["matrix"][0]["HOST"]
+                ),
+                None,
+            )
+            if last_core_job:
+                jobs[win_job_name]["needs"] = [{"job": last_core_job, "optional": True}]
+
+        # 4. First non-CORE windows job needs the windows _core job;
+        #    propagate that dep to any sibling that already needs a CORE job
+        if (
+            opts.windows_tier
+            and windows_core_job_names
+            and win_job_name
+            and win_job_name in jobs
+        ):
+            first_non_core_win = next(
+                (
+                    jn
+                    for jn, jc in jobs.items()
+                    if jc["stage"] == f"Tier{opts.windows_tier}"
+                    and jn != win_job_name
+                    and jn not in windows_core_job_names
+                ),
+                None,
+            )
+            if first_non_core_win:
+                jobs[first_non_core_win].setdefault("needs", []).append(
+                    {"job": win_job_name, "optional": True}
+                )
+                for jn, jc in jobs.items():
+                    if (
+                        jc["stage"] == f"Tier{opts.windows_tier}"
+                        and jn not in (win_job_name, first_non_core_win)
+                        and jn not in windows_core_job_names
+                        and "needs" in jc
+                        and any(
+                            need["job"] in windows_core_job_names
+                            for need in jc["needs"]
+                        )
+                    ):
+                        jc["needs"].append({"job": win_job_name, "optional": True})
+
     def generate_gitlab_ci(
         self,
         data: dict[str, list[dict[str, dict[str, Any]]]],
@@ -755,474 +1239,103 @@ class DeploymentHandler(object):
         dry_run: bool = False,
     ) -> dict[str, list]:
 
-        if skip_hosts is not None and only_hosts is not None:
-            if any(skip_hosts) and any(only_hosts):
-                self.logger.warning(
-                    f"Warning: Both --skip_hosts and --only_hosts provided; --only_hosts takes precedence"
-                )
-                skip_hosts = []  # only_hosts takes precedence
-
-        if skip_hosts is None:
-            skip_hosts = []
-
-        if only_hosts is None:
-            only_hosts = []
-
-        if actor is None:
-            actor = []
-
-        if large_tiers is None:
-            large_tiers = []
-
-        if standalone_tiers is None:
-            standalone_tiers = []
-
-        if clustered_tiers is None:
-            clustered_tiers = []
-
-        # required_tiers=None = no allow_failure added anywhere (all tiers are required)
-        # required_tiers=['tier1a', ...] = only those tiers are required; all others get allow_failure: true
-
-        if windows_tier is None:
-            windows_tier = ""
-        else:
-            windows_tier = str(windows_tier)
+        opts = self._normalize_generate_inputs(
+            skip_hosts,
+            only_hosts,
+            actor,
+            large_tiers,
+            standalone_tiers,
+            clustered_tiers,
+            required_tiers,
+            ignore_deploy_order,
+            reverse_deploy_order,
+            docker_image_count,
+            standalone_deployment,
+            core_level,
+            nova_version,
+            windows_tier,
+            dry_run,
+        )
 
         self.logger.debug(
             f"Method '{inspect.currentframe().f_code.co_name}' called with arguments: {locals()}"
         )
 
-        tiers = list(data.keys())
-        top_level_tiers = list(set(re.sub(r"[a-zA-Z_]*$", "", tier) for tier in tiers))
+        stages = self._compute_stages(data, opts.core_level, opts.reverse_deploy_order)
+        gitlab_ci: dict = {"stages": stages}
 
-        # Sort numerically based on the number in "TierX"
-        top_level_tiers.sort(key=lambda x: int(re.search(r"\d+", x).group()))
+        jobs: dict = {}
+        win_host_list_core: list[dict] = []
+        windows_core_job_names: list[str] = []
+        docker_image = self._select_docker_image(opts)
 
-        stages = []
-        if core_level > 0:
-            non_core_tiers = [
-                tier
-                for tier in top_level_tiers
-                if int(re.sub(r"\D", "", tier)) > core_level
-            ]
-            if reverse_deploy_order:
-                non_core_tiers.reverse()
-                stages = non_core_tiers + ["CoreTiers"]
-            else:
-                stages = ["CoreTiers"] + non_core_tiers
-        else:
-            stages = top_level_tiers
-            if reverse_deploy_order:
-                stages.reverse()
-
-        # Prepare GitLab CI/CD pipeline structure
-        gitlab_ci = {"stages": stages}
-
-        jobs = {}
-        win_host_list_core = []
-        windows_core_job_names = []
-
-        for i, tier in enumerate(tiers):
-
-            mode = getenv_str("DEPLOY_MODE", deploy_modes.REDEPLOY)
+        for i, tier in enumerate(data.keys()):
             top_level_tier = re.sub(r"[a-zA-Z_]*$", "", tier)
             top_level_tier_number = re.sub(r"\D", "", top_level_tier)
 
-            if top_level_tier_number == windows_tier and "CORE" in tier.upper():
-                win_sublevel = re.sub(r"\_(.*)", "", tier)
-                job_name = win_sublevel.lower()
-            else:
-                job_name = f"{tier.lower()}"
+            is_win_core = (
+                top_level_tier_number == opts.windows_tier and "CORE" in tier.upper()
+            )
+            job_name = (
+                re.sub(r"\_(.*)", "", tier).lower() if is_win_core else tier.lower()
+            )
 
-            if top_level_tier_number == windows_tier and "CORE" in tier.upper():
-                deploy_rule = [
+            deploy_rule = (
+                [
                     {
-                        "if": f'$REDEPLOY_{top_level_tier.upper()} == "true" && $DEPLOY_MODE != "redeploy" && $DEPLOY_MODE != "deploy"',
+                        "if": (
+                            f'$REDEPLOY_{top_level_tier.upper()} == "true"'
+                            f' && $DEPLOY_MODE != "redeploy" && $DEPLOY_MODE != "deploy"'
+                        ),
                         "when": "on_success",
                     }
                 ]
-            else:
-                deploy_rule = [
+                if is_win_core
+                else [
                     {
                         "if": f'$REDEPLOY_{top_level_tier.upper()} == "true"',
                         "when": "on_success",
                     }
                 ]
-            host_list = []
-            needs_fat_runner = False
-            for host in data[tier]:
-                host, host_actor = list(host.items())[0]
-                host = host.strip()
-                host_actor = host_actor["actor"].strip()
+            )
 
-                if host_actor.upper() not in actor and any(actor):
-                    continue
-                if (
-                    (any(only_hosts) and host in only_hosts)
-                    or (
-                        any(only_hosts)
-                        and "||" in host
-                        and host.split("||")[0] in only_hosts
-                    )
-                    or (not any(only_hosts) and host not in skip_hosts)
-                ):
-                    # Skip team suffix for standalone tiers
-                    add_team_suffix = top_level_tier.upper() not in standalone_tiers
+            host_list, win_entries, needs_fat_runner = self._build_host_list(
+                data, tier, job_name, top_level_tier, top_level_tier_number, opts
+            )
+            win_host_list_core.extend(win_entries)
 
-                    if add_team_suffix:
-                        team_nr = "{0:02d}".format(int(getenv_str("CICD_TEAM", "28")))
-
-                    if "||" in host:
-                        needs_fat_runner = (
-                            True  # set fat runner due to large host count
-                        )
-                        hostname, count_str = host.split("||")
-                        count = int(count_str)
-
-                        all_hosts = [f"hostname_{i:02}" for i in range(1, count + 1)]
-
-                        is_clustered = job_name in clustered_tiers
-                        step = (
-                            len(all_hosts)
-                            if is_clustered
-                            else self.config.DEPLOYMENT_SEQUENCE_STEP
-                        )
-                        grouped = [
-                            all_hosts[i : i + step]
-                            for i in range(0, len(all_hosts), step)
-                        ]
-
-                        for group in grouped:
-                            numbers = [int(x.split("_")[-1]) for x in group]
-
-                            tens_groups = defaultdict(list)
-                            for n in numbers:
-                                tens_groups[n // 10].append(n)
-
-                            group_patterns = []
-                            for tens, nums in sorted(tens_groups.items()):
-                                nums.sort()
-                                if len(nums) == 1:
-                                    group_patterns.append(f"{nums[0]:02}")
-                                else:
-                                    start, end = nums[0], nums[-1]
-                                    if start // 10 == end // 10:
-                                        group_patterns.append(
-                                            f"0[{start % 10}-{end % 10}]"
-                                            if start < 10
-                                            else f"{start//10}[{start%10}-{end%10}]"
-                                        )
-                                    else:
-                                        group_patterns.append(
-                                            "|".join(f"{n:02}" for n in nums)
-                                        )
-
-                            if len(group_patterns) == 1:
-                                pattern = group_patterns[0]
-                            else:
-                                pattern = "(" + "|".join(group_patterns) + ")"
-
-                            entry = f"{hostname}_{pattern}"
-                            if add_team_suffix:
-                                entry += f"_t{team_nr}"
-                            host_list.append(entry)
-                    else:
-                        entry = host
-                        if add_team_suffix:
-                            entry += f"_t{team_nr}"
-                        host_list.append(entry)
-
-                    if top_level_tier_number == windows_tier and "CORE" in tier.upper():
-                        win_host_list_core.append({"host": entry, "actor": host_actor})
-
-            if job_name in clustered_tiers:
-                job_tag = self.config.TAG_RUNNER_MOAD
-            elif top_level_tier.upper() in large_tiers or needs_fat_runner:
-                job_tag = self.config.TAG_RUNNER_FAT
-            else:
-                job_tag = self.config.TAG_RUNNER_SLIM
-
-            if docker_image_count >= 1:
-                random_image_number = random.randint(1, docker_image_count)
-                docker_image = f"{self.config.NEXUS_HOST}/{self.config.PROJECT_VERSION}-cicd-image-{random_image_number}-{nova_version.lower()}:latest"
-            else:
-                docker_image = self.config.EXECUTOR_DOCKER_IMAGE
-
+            job_tag = self._select_runner_tag(
+                job_name, top_level_tier, needs_fat_runner, opts
+            )
             job_stage = (
                 top_level_tier
-                if core_level == 0 or int(top_level_tier_number) > core_level
+                if opts.core_level == 0 or int(top_level_tier_number) > opts.core_level
                 else "CoreTiers"
             )
 
-            job_script = self._build_deploy_script()
-
-            job_is_optional = bool(required_tiers) and not self._tier_matches_required(
-                job_name, required_tiers
+            jobs[job_name] = self._build_deploy_job(
+                job_name,
+                job_stage,
+                docker_image,
+                job_tag,
+                deploy_rule,
+                host_list,
+                opts.required_tiers,
+                opts.dry_run,
             )
 
-            jobs[job_name] = {
-                "stage": job_stage,
-                "image": docker_image,
-                "tags": [job_tag],
-                "before_script": [
-                    "sudo bash /app/move_needed_files.sh",
-                    'echo "$VAULT_PASS" >> /app/.vault_pass',
-                ],
-                "rules": deploy_rule,
-                "script": job_script,
-                "parallel": {"matrix": [{"HOST": host_list}]},
-                "dependencies": [],  # no artifacts needed....
-                "retry": {
-                    "max": 2,
-                    "when": [
-                        "runner_system_failure",
-                        "stuck_or_timeout_failure",
-                        "script_failure",
-                        "api_failure",
-                    ],
-                    "exit_codes": [1, 137],
-                },
-            }
-
-            if job_is_optional:
-                jobs[job_name]["allow_failure"] = True
-
-            # Track windows CORE jobs
-            if top_level_tier_number == windows_tier and "CORE" in tier.upper():
+            if is_win_core:
                 windows_core_job_names.append(job_name)
 
-            if ignore_deploy_order:
-                continue
-            else:
-                if not reverse_deploy_order and i > 0:
-                    my_job_index = list(jobs.keys()).index(job_name)
-                    job_keys_so_far = list(jobs.keys())
+            if not opts.ignore_deploy_order:
+                self._wire_in_loop_needs(jobs, job_name, job_stage, i)
 
-                    previous_job = None
-                    for prev_idx in range(my_job_index - 1, -1, -1):
-                        candidate = job_keys_so_far[prev_idx]
-                        if jobs[candidate]["parallel"]["matrix"][0]["HOST"]:
-                            previous_job = candidate
-                            break
+        jobs.update(
+            self._build_windows_core_jobs(win_host_list_core, docker_image, opts)
+        )
+        self._wire_post_loop_needs(jobs, opts, windows_core_job_names)
 
-                    if previous_job is None:
-                        continue
-
-                    current_job_is_core = job_stage == "CoreTiers"
-                    previous_job_is_core = jobs[previous_job]["stage"] == "CoreTiers"
-
-                    if (current_job_is_core and previous_job_is_core) or (
-                        not current_job_is_core and previous_job_is_core
-                    ):
-                        jobs[job_name]["needs"] = [
-                            {
-                                "job": (
-                                    "dummy_job" if my_job_index == 0 else previous_job
-                                ),
-                                "optional": True,
-                            }
-                        ]
-                    elif (
-                        not current_job_is_core
-                        and not previous_job_is_core
-                        and job_stage == jobs[previous_job]["stage"]
-                    ):
-                        jobs[job_name]["needs"] = [
-                            {
-                                "job": previous_job,
-                                "optional": True,
-                            }
-                        ]
-
-        # windows
-        if windows_tier != "" and win_host_list_core == []:
-            self.logger.warning(
-                f"Tier {windows_tier} defined as Windows tier, but no Windows core hosts found, check your tier assignments"
-            )
-
-        win_core_actors = defaultdict(list)
-        for entry in win_host_list_core:
-            win_core_actors[entry["actor"]].append(entry["host"])
-        for act in win_core_actors:
-            self.logger.debug(
-                f"Windows Core Hosts to be deployed for actor {act}: {win_core_actors[act]}"
-            )
-
-            job_name = ("tier" + str(windows_tier) + "_core").lower()
-            jobs[job_name] = {}
-
-            if f"TIER{windows_tier}" in large_tiers:
-                job_tag = self.config.TAG_RUNNER_FAT
-
-            else:
-                job_tag = self.config.TAG_RUNNER_SLIM
-
-            job_script = self._build_order_script()
-
-            jobs[job_name] = {
-                "stage": f"Tier{windows_tier}",
-                "image": docker_image,
-                "tags": [job_tag],
-                "before_script": [
-                    "sudo bash /app/move_needed_files.sh",
-                    'echo "$VAULT_PASS" >> /app/.vault_pass',
-                ],
-                "rules": [
-                    {
-                        "if": f'$REDEPLOY_TIER{windows_tier} == "true" && ($DEPLOY_MODE == "redeploy" || $DEPLOY_MODE == "deploy")',
-                        "when": "on_success",
-                    }
-                ],
-                "script": job_script,
-                "dependencies": [],  # no artifacts needed....
-                "retry": {
-                    "max": 2,
-                    "when": [
-                        "runner_system_failure",
-                        "stuck_or_timeout_failure",
-                        "script_failure",
-                        "api_failure",
-                    ],
-                    "exit_codes": [1, 137],
-                },
-            }
-            jobs[job_name]["parallel"] = {
-                "matrix": [
-                    {"HOST": " ".join(win_core_actors[act])} for act in win_core_actors
-                ]
-            }
-
-            win_core_is_optional = bool(
-                required_tiers
-            ) and not self._tier_matches_required(job_name, required_tiers)
-            if win_core_is_optional:
-                jobs[job_name]["allow_failure"] = True
-
-        # Add needs for windows core job if core_level is set
-        if (
-            not ignore_deploy_order
-            and not reverse_deploy_order
-            and core_level > 0
-            and windows_tier != ""
-        ):
-            win_job_name = ("tier" + str(windows_tier) + "_core").lower()
-            if win_job_name in jobs:
-                last_core_job = None
-                for job_name, job_config in jobs.items():
-                    if (
-                        job_config["stage"] == "CoreTiers"
-                        and job_config["parallel"]["matrix"][0]["HOST"] != []
-                    ):
-                        last_core_job = job_name
-
-                if last_core_job:
-                    jobs[win_job_name]["needs"] = [
-                        {
-                            "job": last_core_job,
-                            "optional": True,
-                        }
-                    ]
-
-        # Add needs for non-CORE windows jobs to depend on windows core job
-        if (
-            not ignore_deploy_order
-            and not reverse_deploy_order
-            and windows_tier != ""
-            and len(windows_core_job_names) > 0
-        ):
-            win_job_name = ("tier" + str(windows_tier) + "_core").lower()
-            if win_job_name in jobs:
-                # Find the first non-CORE windows job in the same tier
-                # Non-CORE jobs are those in the windows tier that are NOT in the windows_core_job_names list
-                first_non_core_win_job = None
-
-                for job_name, job_config in jobs.items():
-                    if (
-                        job_config["stage"] == f"Tier{windows_tier}"
-                        and job_name != win_job_name
-                        and job_name not in windows_core_job_names
-                    ):
-                        if first_non_core_win_job is None:
-                            first_non_core_win_job = job_name
-                            break
-
-                if first_non_core_win_job:
-                    # Add the windows core job as a dependency
-                    if "needs" not in jobs[first_non_core_win_job]:
-                        jobs[first_non_core_win_job]["needs"] = []
-
-                    jobs[first_non_core_win_job]["needs"].append(
-                        {
-                            "job": win_job_name,
-                            "optional": True,
-                        }
-                    )
-
-                # Also add tier_core to any other non-CORE job whose needs point
-                # to a CORE job (e.g. tier3j depends on tier3d which is a CORE job,
-                # so tier3j should also depend on tier3_core)
-                for jn, jc in jobs.items():
-                    if (
-                        jc["stage"] == f"Tier{windows_tier}"
-                        and jn != win_job_name
-                        and jn not in windows_core_job_names
-                        and jn != first_non_core_win_job
-                        and "needs" in jc
-                        and any(
-                            need["job"] in windows_core_job_names
-                            for need in jc["needs"]
-                        )
-                    ):
-                        jc["needs"].append({"job": win_job_name, "optional": True})
-
-        if not ignore_deploy_order and reverse_deploy_order:
-            job_keys = list(jobs.keys())
-            # Filter out the windows core job since it has different rules and may not exist
-            win_core_job_name = (
-                ("tier" + str(windows_tier) + "_core").lower()
-                if windows_tier != ""
-                else None
-            )
-            if win_core_job_name and win_core_job_name in job_keys:
-                job_keys.remove(win_core_job_name)
-
-            for idx, job_key in enumerate(job_keys):
-                if idx < len(job_keys) - 1:  # Not the last job
-                    jobs[job_key]["needs"] = [
-                        {
-                            "job": job_keys[idx + 1],
-                            "optional": True,
-                        }
-                    ]
-
-        if not ignore_deploy_order and not reverse_deploy_order and core_level > 0:
-            last_core_job = None
-            for job_name, job_config in jobs.items():
-                if (
-                    job_config["stage"] == "CoreTiers"
-                    and job_config["parallel"]["matrix"][0]["HOST"] != []
-                ):
-                    last_core_job = job_name
-
-            if last_core_job:
-                non_core_stages_first_jobs = {}
-                for job_name, job_config in jobs.items():
-                    stage = job_config["stage"]
-                    if stage != "CoreTiers" and stage not in non_core_stages_first_jobs:
-                        non_core_stages_first_jobs[stage] = job_name
-
-                for stage, first_job in non_core_stages_first_jobs.items():
-                    if "needs" not in jobs[first_job]:
-                        jobs[first_job]["needs"] = [
-                            {
-                                "job": last_core_job,
-                                "optional": True,
-                            }
-                        ]
-
-        # Merge jobs into GitLab CI structure
         gitlab_ci.update(jobs)
-
         return gitlab_ci
 
     def get_gitlab_ci_from_tier_assignment(
