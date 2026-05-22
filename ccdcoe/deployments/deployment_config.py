@@ -46,7 +46,9 @@ class Config(object):
     PROJECT_VERSION: str = getenv_str(
         "PROJECT_VERSION", __MANDATORY_VALUE__, True, config_file_location
     )
-    PROVIDENTIA_ENVIRONMENT: str = getenv_str("PROVIDENTIA_ENVIRONMENT", PROJECT_VERSION)
+    PROVIDENTIA_ENVIRONMENT: str = getenv_str(
+        "PROVIDENTIA_ENVIRONMENT", PROJECT_VERSION
+    )
     PROJECT_NAMESPACE: str = getenv_str(
         "PROJECT_NAMESPACE", f"{PROJECT_ROOT}/{PROJECT_VERSION}"
     )
@@ -56,7 +58,8 @@ class Config(object):
     )
 
     EXECUTOR_DOCKER_IMAGE: str = getenv_str(
-        "EXECUTOR_DOCKER_IMAGE", f"{NEXUS_HOST}/{PROJECT_VERSION}-cicd-image:latest"
+        "EXECUTOR_DOCKER_IMAGE",
+        f"{NEXUS_HOST}/{PROVIDENTIA_ENVIRONMENT}-cicd-image:latest",
     )
     TAG_RUNNER_SLIM: str = getenv_str("TAG_RUNNER_SLIM", "docker-deployer-slim")
     TAG_RUNNER_FAT: str = getenv_str("TAG_RUNNER_FAT", "docker-deployer-fat")
