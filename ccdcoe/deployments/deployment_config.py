@@ -46,6 +46,7 @@ class Config(object):
     PROJECT_VERSION: str = getenv_str(
         "PROJECT_VERSION", __MANDATORY_VALUE__, True, config_file_location
     )
+    PROVIDENTIA_ENVIRONMENT: str = getenv_str("PROVIDENTIA_ENVIRONMENT", PROJECT_VERSION)
     PROJECT_NAMESPACE: str = getenv_str(
         "PROJECT_NAMESPACE", f"{PROJECT_ROOT}/{PROJECT_VERSION}"
     )

@@ -39,13 +39,13 @@ def hosts(providentia_api: ProvidentiaApi, list: bool, host_id: str):
     HOST_ID: id of the host you wish to get details from.
     """
     if list:
-        ret_data = providentia_api.environment_hosts(config.PROJECT_VERSION)
+        ret_data = providentia_api.environment_hosts(config.PROVIDENTIA_ENVIRONMENT)
         if "result" in ret_data:
             ConsoleOutput.print(ret_data["result"])
         else:
             ConsoleOutput.print(ret_data)
     else:
-        ret_data = providentia_api.environment_hosts_id(config.PROJECT_VERSION, host_id)
+        ret_data = providentia_api.environment_hosts_id(config.PROVIDENTIA_ENVIRONMENT, host_id)
         if "result" in ret_data:
             if "instances" in ret_data["result"]:
                 all_instances = ret_data["result"].pop("instances")

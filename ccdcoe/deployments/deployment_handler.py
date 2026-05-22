@@ -572,7 +572,7 @@ class DeploymentHandler(object):
 
         self.logger.info(f"Fetching all networks...")
         all_networks = self.providentia.environment_networks(
-            self.config.PROJECT_VERSION
+            self.config.PROVIDENTIA_ENVIRONMENT
         )
 
         target_networks = [
@@ -593,7 +593,7 @@ class DeploymentHandler(object):
         self.logger.info(f"Fetching all hosts...")
 
         host_inventory = self.providentia.environment_inventory(
-            self.config.PROJECT_VERSION
+            self.config.PROVIDENTIA_ENVIRONMENT
         )
 
         all_hosts = [
@@ -620,7 +620,7 @@ class DeploymentHandler(object):
         self.logger.info(f"Fetching inventory from providentia...")
 
         the_inventory = self.providentia.environment_inventory(
-            self.config.PROJECT_VERSION
+            self.config.PROVIDENTIA_ENVIRONMENT
         )
 
         ret_dict = defaultdict(list)
