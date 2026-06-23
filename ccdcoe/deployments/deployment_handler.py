@@ -951,7 +951,7 @@ class DeploymentHandler(object):
         if opts.docker_image_count >= 1:
             n = random.randint(1, opts.docker_image_count)
             return (
-                f"{self.config.NEXUS_HOST}/{self.config.PROJECT_VERSION}"
+                f"{self.config.NEXUS_HOST}/{self.config.PROVIDENTIA_ENVIRONMENT}"
                 f"-cicd-image-{n}-{opts.nova_version.lower()}:latest"
             )
         return self.config.EXECUTOR_DOCKER_IMAGE
