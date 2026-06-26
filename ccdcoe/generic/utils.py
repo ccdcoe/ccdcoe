@@ -60,18 +60,16 @@ def getenv_str(
     mandatory: bool = False,
     config_file_location: str = None,
 ):
-    raw = os.getenv(name)
+    raw = os.getenv(name, default)
 
-    if raw is None or raw.strip() == "":
-        raw = default
-
-    if mandatory and raw == __MANDATORY_VALUE__:
-        raise ValueError(
-            f"Mandatory variable: {name} is not set!"
-            if config_file_location is None
-            else f"Mandatory variable: {name} is not set; set this variable in the config file "
-                 f"located at: {config_file_location}!"
-        )
+    if mandatory:
+        if raw == __MANDATORY_VALUE__:
+            raise ValueError(
+                f"Mandatory variable: {name} is not set!"
+                if config_file_location is None
+                else f"Mandatory variable: {name} is not set; set this variable in the config file "
+                f"located at: {config_file_location}!"
+            )
 
     return raw
 
