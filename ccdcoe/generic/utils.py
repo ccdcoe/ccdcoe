@@ -60,7 +60,7 @@ def getenv_str(
     mandatory: bool = False,
     config_file_location: str = None,
 ):
-    raw = os.getenv(name, default)
+    raw = os.getenv(name) or default # treat empty str as unset
 
     if mandatory:
         if raw == __MANDATORY_VALUE__:
