@@ -62,6 +62,7 @@ def deploy_cmd(ctx):
 @add_options(docker_image_count_option)
 @add_options(ansible_extra_vars_option)
 @add_options(dry_run_option)
+@click.pass_obj
 def full(
     deployment_handler: DeploymentHandler,
     branch: str,
@@ -115,7 +116,7 @@ def full(
         deployment_handler.logger.info(f"Initiated deployment for team: {the_team}...")
         ret_data = deployment_handler.deploy_team(
             reference=branch,
-            team_number=team,
+            team_number=the_team,
             tier_level=last_tier,
             deploy_full_tier=True,
             deploy_mode=deployment_mode,
